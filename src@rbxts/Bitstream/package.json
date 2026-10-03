@@ -1,0 +1,17 @@
+{
+  "name": "@rbxenv/bitstream",
+  "version": "4.0.0",
+  "description": "Binary framework for Rbxenv",
+  "main": "index.luau",
+  "types": "index.d.ts",
+  "files": [
+    "**/*"
+  ],
+  "keywords": [
+    "roblox",
+    "roblox-ts",
+    "luau"
+  ],
+  "author": "Fractal",
+  "license": "MIT"
+}
