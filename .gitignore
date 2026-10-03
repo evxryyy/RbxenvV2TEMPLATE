@@ -6,3 +6,4 @@ include/
 .vscode/
 .eslintrc
 .prettierrc
+COMMANDS.md
