@@ -1,0 +1,21 @@
+{
+  "name": "RbxenvV2Template",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Packages": {
+        "$className": "Folder",
+        "Luau": {
+          "$path": "src"
+        },
+        "TS": {
+          "$path": "out"
+        }
+      },
+      "rbxts_include": {
+        "$path": "include"
+      }
+    }
+  }
+}
