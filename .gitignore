@@ -4,3 +4,5 @@ include/
 *.rbxl
 *.rbxlx
 .vscode/
+.eslintrc
+.prettierrc

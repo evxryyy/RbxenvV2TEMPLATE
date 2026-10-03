@@ -14,5 +14,8 @@
     "concurrently": "^8.2.2",
     "roblox-ts": "^2.3.0",
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@rbxts/services": "^1.6.0"
   }
 }
