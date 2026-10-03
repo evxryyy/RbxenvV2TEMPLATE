@@ -1,3 +1,2 @@
 # RbxenvV2TEMPLATE
-
-Template for the new version of the Rbxenv ecosystem it is public so that people can see the progress no announcement will be made if you see this so good in advance thank you for being patient.
+Template for the new version of the Rbxenv ecosystem. It is public so people can track the development progress. No official announcement will be made yet—if you're seeing this, you're early! Thank you in advance for your patience.
