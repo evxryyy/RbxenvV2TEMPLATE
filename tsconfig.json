@@ -5,6 +5,7 @@
     "module": "commonjs",
     "moduleResolution": "Node",
     "noImplicitAny": true,
+    "incremental": true,
     "strictNullChecks": false,
     "target": "ESNext",
     "rootDir": "src@rbxts",
