@@ -2656,7 +2656,7 @@ class Component {
                 readu8(this.buffer,offset + 2)
             ]
             return (bytes[0] << 16 | bytes[1] << 8) | bytes[2]
-        })
+        },offset)
     }
 
     /*
@@ -2692,7 +2692,7 @@ class Component {
             ]
             let value = bytes[0] * fbit32 + bytes[1] * fbit24 + bytes[2] * fbit16 + bytes[3] * fbit8 + bytes[4]
             return value
-        })
+        },offset)
     }
 
     /*
@@ -2716,7 +2716,7 @@ class Component {
             ]
             let value = bytes[0] * fbit40 + bytes[1] * fbit32 + bytes[2] * fbit24 + bytes[3] * fbit16 + bytes[4] * fbit8 + bytes[5]
             return value
-        })
+        },offset)
     }    
 
     /*
@@ -2741,7 +2741,7 @@ class Component {
             ]
             let value = bytes[0] * fbit48 + bytes[1] * fbit40 + bytes[2] * fbit32 + bytes[3] * fbit24 + bytes[4] * fbit16 + bytes[5] * fbit8 + bytes[6]
             return value
-        })
+        },offset)
     }
 
     //#endregion
@@ -2813,11 +2813,11 @@ class Component {
     * @since v1.0
     */
     public readBool8(offset? : number) {
-        offset = (typeOf(offset) === "number" && (offset as number * 8) <= this.offset * 8 ? offset : this.offset) as number * 8
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.executeReadImplementation(() => {
             let booleans : boolean[] = []
             for(let i = 0; i <= 7; i++) {
-                booleans[i] = (readbits(this.buffer,offset,1) === 1 ? true : false)
+                booleans[i] = (readbits(this.buffer,offset * 8 + i,1) === 1 ? true : false)
             }
             return {
                 value : booleans,
@@ -2830,7 +2830,7 @@ class Component {
                     return (trueFlag >= falseFlag) ? true : false
                 }
             }
-        })
+        },offset)
     }
 
     //#endregion
@@ -2849,7 +2849,7 @@ class Component {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.executeReadImplementation(() => {
             return Extensions.decodeF8(readu8(this.buffer,offset))
-        })
+        },offset)
     }
 
     /*
@@ -2878,7 +2878,7 @@ class Component {
         return this.executeReadImplementation(() => {
             let value = readu8(this.buffer,offset) << 16 | readu8(this.buffer,offset + 1) << 8 | readu8(this.buffer,offset + 2)
             return Extensions.decodeF24(value)
-        })
+        },offset)
     }
 
     /*
@@ -2926,7 +2926,7 @@ class Component {
         return this.executeReadImplementation(() => {
             let [x,y] = readNfp24(this.buffer,2,offset)
             return new Vector2(x,y)
-        })
+        },offset)
     }
 
     /*
@@ -2942,7 +2942,7 @@ class Component {
         return this.executeReadImplementation(() => {
             let [x,y] = [readf32(this.buffer,offset),readf32(this.buffer,offset + 4)]
             return new Vector2(x,y)
-        })
+        },offset)
     }
 
     /*
@@ -2958,7 +2958,7 @@ class Component {
         return this.executeReadImplementation(() => {
             let [x,y] = [readi16(this.buffer,offset),readi16(this.buffer,offset + 2)]
             return new Vector2int16(x,y)
-        })
+        },offset)
     }
 
     /*
@@ -2974,7 +2974,7 @@ class Component {
         return this.executeReadImplementation(() => {
             let [x,y] = [readu16(this.buffer,offset),readu16(this.buffer,offset + 2)]
             return new Vector2(x,y)
-        })
+        },offset)
     }
 
     /*
@@ -2990,7 +2990,7 @@ class Component {
         return this.executeReadImplementation(() => {
             let [x,y] = [readf64(this.buffer,offset),readf64(this.buffer,offset + 8)]
             return new Vector2(x,y)
-        })
+        },offset)
     }
 
     //#endregion
@@ -3010,7 +3010,7 @@ class Component {
         return this.executeReadImplementation(() => {
             let [x,y,z] = readNfp24(this.buffer,3,offset)
             return new Vector3(x,y,z)
-        })
+        },offset)
     }
 
     /*
@@ -3030,7 +3030,7 @@ class Component {
                 readf32(this.buffer,offset + 8)
             ]
             return new Vector3(x,y,z)
-        })
+        },offset)
     }
 
     /*
@@ -3050,7 +3050,7 @@ class Component {
                 readi16(this.buffer,offset + 4)
             ]
             return new Vector3int16(x,y,z)
-        })
+        },offset)
     }
 
     /*
@@ -3070,7 +3070,7 @@ class Component {
                 readu16(this.buffer,offset + 4)
             ]
             return new Vector3(x,y,z)
-        })
+        },offset)
     }
 
     /*
@@ -3090,15 +3090,343 @@ class Component {
                 readf64(this.buffer,offset + 16)
             ]
             return new Vector3(x,y,z)            
-        })
+        },offset)
     }
 
     //#endregion
 
     //#region "[Reader] CFrame"
 
+    /*
+    * Read a Quaternion and convert it to a CFrame from the buffer
+    *
+    * @Returns CFrame
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readCFrameQuaternion(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let pos = {
+                x: readf32(this.buffer,offset),
+                y: readf32(this.buffer,offset + 4),
+                z: readf32(this.buffer,offset + 8)
+            }
+            let quat = {
+                x: readf32(this.buffer,offset + 12),
+                y: readf32(this.buffer,offset + 16),
+                z: readf32(this.buffer,offset + 20),
+                w: readf32(this.buffer,offset + 24)
+            }
+            return Extensions.quaternionToCFrame(
+                new Vector3(pos.x,pos.y,pos.z),
+                quat
+            )
+        },offset)
+    }
 
+    /*
+    * Read a CFrame (24-bit float) from the buffer
+    *
+    * @Returns CFrame
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readCFrameF24(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let data = readNfp24(this.buffer,6,offset)
+            return CFrame.Angles(data[3],data[4],data[5]).add(new Vector3(data[0],data[1],data[2]))
+        },offset)
+    }
+
+    /*
+    * Read a CFrame (single-precision) from the buffer
+    *
+    * @Returns CFrame
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readCFrameF32(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [px,py,pz] = [
+                readf32(this.buffer,offset),
+                readf32(this.buffer,offset + 4),
+                readf32(this.buffer,offset + 8)
+            ]
+            let [x,y,z] = [
+                readf32(this.buffer,offset + 12),
+                readf32(this.buffer,offset + 16),
+                readf32(this.buffer,offset + 20),                
+            ]
+            return CFrame.Angles(x,y,z).add(new Vector3(px,py,pz))
+        },offset)
+    }
+   
+    /*
+    * Read a CFrame (double-precision) from the buffer
+    *
+    * @Returns CFrame
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readCFrameF64(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [px,py,pz] = [
+                readf64(this.buffer,offset),
+                readf64(this.buffer,offset + 8),
+                readf64(this.buffer,offset + 16)
+            ]
+            let [x,y,z] = [
+                readf64(this.buffer,offset + 24),
+                readf64(this.buffer,offset + 32),
+                readf64(this.buffer,offset + 40),                
+            ]
+            return CFrame.Angles(x,y,z).add(new Vector3(px,py,pz))
+        },offset)        
+    }
+
+    /*
+    * Read a Quantized-CFrame from the buffer
+    *
+    * Quantization scales:
+    * - POSITION_SCALE = 1000 (converts meters to millimeters)
+    * - ROTATION_SCALE = 10430.38 (32767/π for optimal angle precision)
+    * 
+    * @Returns CFrame
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readCFrameQuantized(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let pos = {
+                x: readi16(this.buffer,offset) / POSITION_SCALE,
+                y: readi16(this.buffer,offset + 2) / POSITION_SCALE,
+                z: readi16(this.buffer,offset + 4) / POSITION_SCALE
+            }
+            let rot = {
+                x: readi16(this.buffer,offset + 6) / ROTATION_SCALE,
+                y: readi16(this.buffer,offset + 8) / ROTATION_SCALE,
+                z: readi16(this.buffer,offset + 10) / ROTATION_SCALE                
+            }
+            return new CFrame(pos.x,pos.y,pos.z).mul(CFrame.fromEulerAnglesXYZ(rot.x,rot.y,rot.z))
+        },offset)
+    }
+
+    //#endregion
+
+    //#region "[Reader] Color3"
+
+    /*
+    * Read a Color3 from the buffer
+    *
+    * @Returns Color3
+    * 
+    * @latest modification : v4.0
+    * @since v1.0
+    */
+    public readColor3(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [r,g,b] = [
+                readu8(this.buffer,offset)/255,
+                readu8(this.buffer,offset + 1)/255,
+                readu8(this.buffer,offset + 2)/255,
+            ]
+            return new Color3(r,g,b)
+        },offset)
+    }
+
+    /*
+    * Read a Color3 (float24-bit) from the buffer
+    *
+    * @Returns Color3
+    * 
+    * @latest modification : v4.0
+    * @since : v4.0
+    */
+    public readColorF24(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let data = readNfp24(this.buffer,3,offset)
+            return new Color3(data[0],data[1],data[2])
+        },offset)
+    }
+
+    /*
+    * Read a Color3 (single-precision) from the buffer
+    *
+    * @Returns Color3
+    * 
+    * @latest modification : v4.0
+    * @since v1.0
+    */
+    public readColorF32(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [r,g,b] = [
+                readf32(this.buffer,offset),
+                readf32(this.buffer,offset + 4),
+                readf32(this.buffer,offset + 8)
+            ]
+            return new Color3(r,g,b)
+        },offset)
+    }
+
+    /*
+    * Read a Color3 (double-precision) from the buffer
+    *
+    * @Returns Color3
+    * 
+    * @latest modification : v4.0
+    * @since v1.0
+    */
+    public readColorF64(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [r,g,b] = [
+                readf64(this.buffer,offset),
+                readf64(this.buffer,offset + 8),
+                readf64(this.buffer,offset + 16)
+            ]
+            return new Color3(r,g,b)
+        },offset)
+    }
+
+    //#endregion
+
+    //#region "[Reader] UDim"
     
+    /*
+    * Read a UDim from the buffer
+    *
+    * @Returns UDim
+    * 
+    * @latest modification : v4.0
+    * @since v1.0
+    */
+    public readUDim(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [scale,uiOffset] = [
+                readf32(this.buffer,offset),
+                readi32(this.buffer,offset + 4)
+            ]
+            return new UDim(scale,uiOffset)
+        },offset)
+    }
+
+    /*
+    * Read a UDim2 from the buffer
+    *
+    * @Returns UDim2
+    * 
+    * @latest modification : v4.0
+    * @since v1.0
+    */    
+    public readUDim2(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [scaleX,scaleY,uiOffsetX,uiOffsetY] = [
+                readf32(this.buffer,offset),
+                readf32(this.buffer,offset + 8),
+                readi32(this.buffer,offset + 4),
+                readi32(this.buffer,offset + 12)
+            ]
+            return new UDim2(scaleX,uiOffsetX,scaleY,uiOffsetY)
+        },offset)
+    }
+
+    //#endregion
+
+    //#region "[Reader] Rect"
+
+    /*
+    * Read a Rect(Float24) from the buffer.
+    *
+    * @Returns Rect
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRectFloat24(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let data = readNfp24(this.buffer,4,offset)
+            return new Rect(data[0],data[1],data[2],data[3])
+        },offset)
+    }
+
+    /*
+    * Read a Rect(Float32) from the buffer.
+    *
+    * @Returns Rect
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRectFloat32(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [minX,minY,maxX,maxY] = [
+                readf32(this.buffer,offset),
+                readf32(this.buffer,offset + 4),
+                readf32(this.buffer,offset + 8),
+                readf32(this.buffer,offset + 12)
+            ]
+            return new Rect(minX,minY,maxX,maxY)
+        },offset)
+    }
+
+    /*
+    * Read a Rect from the buffer.
+    *
+    * @Returns Rect
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRect(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [minX,minY,maxX,maxY] = [
+                readf64(this.buffer,offset),
+                readf64(this.buffer,offset + 8),
+                readf64(this.buffer,offset + 16),
+                readf64(this.buffer,offset + 24)
+            ]            
+            return new Rect(minX,minY,maxX,maxY)
+        },offset)
+    }
+
+    //#endregion
+
+    //#region "[Reader] Enum"
+
+    /*
+    * Read a Enum from the buffer.
+    *
+    * @Returns EnumItem
+    * 
+    * @latest modification : v4.0
+    * @since v1.7
+    */
+    public readEnum(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let id = readu16(this.buffer,offset)
+            return Constants.EnumItemList[id]
+        },offset)
+    }
+
     //#endregion
 
     //#endregion
