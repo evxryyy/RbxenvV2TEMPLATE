@@ -8,3 +8,4 @@ include/
 .prettierrc
 COMMANDS.md
 *.tgz
+*.tsbuildinfo
