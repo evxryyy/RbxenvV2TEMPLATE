@@ -289,7 +289,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeI8(value : number) : Component {
+    public writeI8(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.I8)
         writei8(this.buffer,this.offset,value);
@@ -306,7 +306,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeI16(value : number) : Component {
+    public writeI16(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.I16)
         writei16(this.buffer,this.offset,value)
@@ -325,7 +325,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeI24(value : number) : Component {
+    public writeI24(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.I24)
         value = clamp(modf(value)[0],Constants.MIN_INT24,Constants.MAX_INT24)
@@ -345,7 +345,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */    
-    writeI32(value : number) : Component {
+    public writeI32(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.I32)
         writei32(this.buffer,this.offset,value)
@@ -365,7 +365,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */ 
-    writeI40(value : number) : Component {
+    public writeI40(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.I40)
         value = clamp(modf(value)[0],Constants.MIN_INT40,Constants.MAX_INT40)
@@ -392,7 +392,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeI48(value : number) : Component {
+    public writeI48(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.I48)
         value = clamp(modf(value)[0],Constants.MIN_INT48,Constants.MAX_INT48)
@@ -421,7 +421,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeI54(value : number) : Component {
+    public writeI54(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.I54)
         value = clamp(modf(value)[0],Constants.MIN_INT54,Constants.MAX_INT54)
@@ -450,7 +450,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v4.0
     */
-    writeInt(value : number) : Component {
+    public writeInt(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         const bytesData = Utilities.getEquivalentBytesInfoFromNumber(value)
         value = clamp(
@@ -474,7 +474,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.3
     */
-    writeU1(value : number) : Component {
+    public writeU1(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.U1)
         writebits(this.buffer,this.offset * 8,1,(value > 1) ? 1 : 0)
@@ -491,7 +491,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeU8(value : number) : Component {
+    public writeU8(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.U8)
         writeu8(this.buffer,this.offset,value)
@@ -508,7 +508,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeU16(value : number) : Component {
+    public writeU16(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.U16)
         writeu16(this.buffer,this.offset,value)
@@ -527,7 +527,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeU24(value : number) : Component {
+    public writeU24(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.U24)
         value = clamp(modf(value)[0],Constants.MIN_UINT,Constants.MAX_UINT24)
@@ -547,7 +547,7 @@ class Component {
     * 
     * @lastest modification : v4.0
     */
-    writeU32(value : number) : Component {
+    public writeU32(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.U32)
         writeu32(this.buffer,this.offset,value)
@@ -564,7 +564,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeU40(value : number) : Component {
+    public writeU40(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.U40)
         value = clamp(modf(value)[0],Constants.MIN_UINT,Constants.MAX_UINT40)
@@ -580,7 +580,7 @@ class Component {
         return this
     }
 
-    writeU48(value : number) : Component {
+    public writeU48(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.U48)
         value = clamp(modf(value)[0],Constants.MIN_UINT,Constants.MAX_UINT48)
@@ -606,7 +606,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeU54(value : number) : Component {
+    public writeU54(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.U54)
         value = clamp(modf(value)[0],Constants.MIN_UINT,Constants.MAX_UINT54)
@@ -633,7 +633,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v4.0
     */
-    writeUInt(value : number) : Component {
+    public writeUInt(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         const bytesData = Utilities.getEquivalentBytesInfoFromNumber(value)
         value = clamp(
@@ -657,7 +657,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v4.0
     */
-    writeF8(value : number) : Component {
+    public writeF8(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.F8)
         writeu8(this.buffer,this.offset,Extensions.encodeF8(value))
@@ -676,7 +676,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeF16(value : number) : Component {
+    public writeF16(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.F16)
         let [uint16] = Extensions.toFloat16(value)
@@ -696,7 +696,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v4.0
     */
-    writeF24(value : number) : Component {
+    public writeF24(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.F24)
         let fp24 = Extensions.encodeF24(value)
@@ -718,7 +718,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeF32(value : number) : Component {
+    public writeF32(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.F32)
         writef32(this.buffer,this.offset,value)
@@ -736,7 +736,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v1.0
     */
-    writeF64(value : number) : Component {
+    public writeF64(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.F64)
         writef64(this.buffer,this.offset,value)
@@ -754,7 +754,7 @@ class Component {
     * @lastest modification : v4.0
     * @since v4.0
     */
-    writeFloat(value : number) : Component {
+    public writeFloat(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         const bytesData = Utilities.getEquivalentBytesInfoFromNumber(value)
         if(bytesData.bytes > 4 && bytesData.bytes <= 7) return this.writeF32(value);
@@ -2909,7 +2909,7 @@ class Component {
 
     //#endregion
 
-    //#region "[Reader-RobloxTypes]"
+    //#region "[Reader] Roblox Types"
 
     //#region "[Reader] Vector2"
 
@@ -3253,7 +3253,7 @@ class Component {
     * @latest modification : v4.0
     * @since : v4.0
     */
-    public readColorF24(offset? : number) {
+    public readColor3F24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.executeReadImplementation(() => {
             let data = readNfp24(this.buffer,3,offset)
@@ -3269,7 +3269,7 @@ class Component {
     * @latest modification : v4.0
     * @since v1.0
     */
-    public readColorF32(offset? : number) {
+    public readColor3F32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.executeReadImplementation(() => {
             let [r,g,b] = [
@@ -3289,7 +3289,7 @@ class Component {
     * @latest modification : v4.0
     * @since v1.0
     */
-    public readColorF64(offset? : number) {
+    public readColor3F64(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.executeReadImplementation(() => {
             let [r,g,b] = [
@@ -3425,6 +3425,618 @@ class Component {
             let id = readu16(this.buffer,offset)
             return Constants.EnumItemList[id]
         },offset)
+    }
+
+    //#endregion
+
+    //#region "[Reader] Region3"
+
+    /*
+    * Read a Region3 from the buffer
+    *
+    * @Returns Region3
+    * 
+    * @latest modification : v4.0
+    * @since v1.0
+    */
+    public readRegion3(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let cf = this.readCFrameF64(offset)
+            let size = this.readVector3(offset + 48)
+            let halfSize = size.mul(0.5)
+            let min = cf.Position.sub(halfSize)
+            let max = cf.Position.add(halfSize)
+            return new Region3(min,max)
+        },offset)
+    }
+
+    /*
+    * Read a Region3int16 from the buffer
+    *
+    * @Returns Region3int16
+    * 
+    * @latest modification : v4.0
+    * @since v1.0
+    */
+    public readRegion3int16(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [min,max] = [
+                this.readVector3int16(offset),
+                this.readVector3int16(offset + 6)
+            ]
+            return new Region3int16(min,max)
+        },offset)
+    }
+
+    /*
+    * Read a Region3 from the buffer using Quaternion CFrames.
+    *
+    * @Returns Region3
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRegion3Quaternion(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let cf = this.readCFrameQuaternion(offset)
+            let size = this.readVector3(offset + 28)
+            let halsize = size.mul(0.5)
+            let min = cf.Position.sub(halsize)
+            let max = cf.Position.add(halsize)
+            return new Region3(min,max)
+        },offset)
+    }
+
+    /*
+    * Read a Region3 from the buffer using F24 CFrames.
+    *
+    * @Returns Region3
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRegion3CFrameF24(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let cf = this.readCFrameF24(offset)
+            let size = this.readVector3(offset + 18)
+            let halfSize = size.mul(0.5)
+            let min = cf.Position.sub(halfSize)
+            let max = cf.Position.add(halfSize)
+            return new Region3(min,max)
+        },offset)
+    }
+
+    /*
+    * Read a Region3 from the buffer using F32 CFrames.
+    *
+    * @Returns Region3
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRegion3CFrameF32(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let cf = this.readCFrameF32(offset)
+            let size = this.readVector3(offset + 24)
+            let halfSize = size.mul(0.5)
+            let min = cf.Position.sub(halfSize)
+            let max = cf.Position.add(halfSize)
+            return new Region3(min,max)
+        },offset)
+    }
+
+    /*
+    * Read a Region3 from the buffer using a Quantized CFrames.
+    *
+    * @Returns Region3
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRegion3Quantized(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let cf = this.readCFrameQuantized(offset)
+            let size = this.readVector3(offset + 12)
+            let halfSize = size.mul(0.5)
+            let min = cf.Position.sub(halfSize)
+            let max = cf.Position.add(halfSize)
+            return new Region3(min,max)        
+        },offset)
+    }
+
+    //#endregion
+
+    //#region "[Reader] RotationCurveKey"
+
+    /*
+    * Read a RotationCurveKey from the buffer.
+    *
+    * @Returns RotationCurveKey
+    * 
+    * @latest modification : v4.0
+    * @since v1.8
+    */
+    public readRotationCurveKey(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        this.ensureReadable(offset,4)
+        let t = readf32(this.buffer,offset)
+        let cf = this.readCFrameF64(offset + 4)
+        let enumItem = this.readEnum(offset + 52) as Enum.KeyInterpolationMode
+        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(enumItem === Enum.KeyInterpolationMode.Cubic) {
+            this.ensureReadable(offset + 54,8)
+            rotKey.LeftTangent = readf32(this.buffer,offset + 54)
+            rotKey.RightTangent = readf32(this.buffer,offset + 58)
+        }
+        return rotKey
+    }
+
+    /* 
+    * Read a RotationCurveKey from the buffer using Quaternion CFrames.
+    *
+    * @Returns RotationCurveKey
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRotationCurveKeyQuaternion(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        this.ensureReadable(offset,4)
+        let t = readf32(this.buffer,offset)
+        let cf = this.readCFrameQuaternion(offset + 4)
+        let enumItem = this.readEnum(offset + 32) as Enum.KeyInterpolationMode
+        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(enumItem === Enum.KeyInterpolationMode.Cubic) {
+            this.ensureReadable(offset + 34,8)
+            rotKey.LeftTangent = readf32(this.buffer,offset + 34)
+            rotKey.RightTangent = readf32(this.buffer,offset + 38)                
+        }
+        return rotKey
+    }
+
+    /*
+    * Read a RotationCurveKey from the buffer using F24 CFrames.
+    *
+    * @Returns RotationCurveKey
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRotationCurveKeyCFrameF24(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        this.ensureReadable(offset,4)
+        let t = readf32(this.buffer,offset)
+        let cf = this.readCFrameF24(offset + 4)
+        let enumItem = this.readEnum(offset + 22) as Enum.KeyInterpolationMode
+        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(enumItem === Enum.KeyInterpolationMode.Cubic) {
+            this.ensureReadable(offset + 24,8)
+            rotKey.LeftTangent = readf32(this.buffer,offset + 24)
+            rotKey.RightTangent = readf32(this.buffer,offset + 28)                      
+        }
+        return rotKey
+    }
+
+    /*
+    * Read a RotationCurveKey from the buffer using F32 CFrames.
+    *
+    * @Returns RotationCurveKey
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRotationCurveKeyCFrameF32(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        this.ensureReadable(offset,4)
+        let t = readf32(this.buffer,offset)
+        let cf = this.readCFrameF32(offset + 4)
+        let enumItem = this.readEnum(offset + 28) as Enum.KeyInterpolationMode
+        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(enumItem === Enum.KeyInterpolationMode.Cubic) {
+            this.ensureReadable(offset + 30,8)
+            rotKey.LeftTangent = readf32(this.buffer,offset + 30)
+            rotKey.RightTangent = readf32(this.buffer,offset + 34)
+        }
+        return rotKey
+    }
+
+    /*
+    * Read a RotationCurveKey from the buffer using a Quantized CFrame.
+    *
+    * @Returns RotationCurveKey
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readRotationCurveKeyCFrameQuantized(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        this.ensureReadable(offset,4)
+        let t = readf32(this.buffer,offset)
+        let cf = this.readCFrameQuantized(offset + 4)
+        let enumItem = this.readEnum(offset + 16) as Enum.KeyInterpolationMode
+        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(enumItem === Enum.KeyInterpolationMode.Cubic) {
+            this.ensureReadable(offset + 18,8)
+            rotKey.LeftTangent = readf32(this.buffer,offset + 18)
+            rotKey.RightTangent = readf32(this.buffer,offset + 22)                
+        }
+        return rotKey
+    }
+
+    //#endregion
+
+    //#region "[Reader] FloatCurveKey"
+
+    /*
+    * Read a FloatCurveKey from the buffer.
+    *
+    * @Returns FloatCurveKey
+    * 
+    * @latest modification : v4.0
+    * @since v1.8
+    */
+    public readFloatCurveKey(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        this.ensureReadable(offset,12)
+        let t = readf32(this.buffer,offset)
+        let value = readf64(this.buffer,offset + 4)
+        let enumItem = this.readEnum(offset + 12) as Enum.KeyInterpolationMode
+        let floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
+        if(enumItem === Enum.KeyInterpolationMode.Cubic) {
+            this.ensureReadable(offset + 14,8)
+            floatKey.LeftTangent = readf32(this.buffer,offset + 14)
+            floatKey.RightTangent = readf32(this.buffer,offset + 18)
+        }
+        return floatKey
+    }
+
+    /*
+    * Read a FloatCurveKey from the buffer using F32.
+    * 
+    * @Returns FloatCurveKey
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readFloatCurveKeyF32(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        this.ensureReadable(offset,8)
+        let t = readf32(this.buffer,offset)
+        let value = readf32(this.buffer,offset + 4)
+        let enumItem = this.readEnum(offset + 8) as Enum.KeyInterpolationMode
+        let floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
+        if(enumItem === Enum.KeyInterpolationMode.Cubic) {
+            this.ensureReadable(offset + 10,8)
+            floatKey.LeftTangent = readf32(this.buffer,offset + 10)
+            floatKey.RightTangent = readf32(this.buffer,offset + 14)            
+        }
+        return floatKey
+    }    
+
+    /*
+    * Read a FloatCurveKey from the buffer using F24.
+    *
+    * @Returns FloatCurveKey
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readFloatCurveKeyF24(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        this.ensureReadable(offset,7)
+        let t = readf32(this.buffer,offset)
+        let [value] = readNfp24(this.buffer,1,offset)
+        let enumItem = this.readEnum(offset + 7) as Enum.KeyInterpolationMode
+        let floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
+        if(enumItem === Enum.KeyInterpolationMode.Cubic) {
+            this.ensureReadable(offset + 9,8)
+            floatKey.LeftTangent = readf32(this.buffer,offset + 9)
+            floatKey.RightTangent = readf32(this.buffer,offset + 13)              
+        }
+        return floatKey
+    }
+
+    /*
+    * Read a FloatCurveKey from the buffer using F16.
+    *
+    * @Returns FloatCurveKey
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readFloatCurveKeyF16(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        this.ensureReadable(offset,6)
+        let t = readf32(this.buffer,offset)
+        let value = Extensions.decodeF16(this.buffer,offset + 4)
+        let enumItem = this.readEnum(offset + 6) as Enum.KeyInterpolationMode
+        let floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
+        if(enumItem === Enum.KeyInterpolationMode.Cubic) {
+            this.ensureReadable(offset + 8,8)
+            floatKey.LeftTangent = readf32(this.buffer,offset + 8)
+            floatKey.RightTangent = readf32(this.buffer,offset + 12)                   
+        }
+        return floatKey
+    }
+
+    //#endregion
+
+    //#region "[Reader] ColorSequence"
+
+    /*
+    * Read a ColorSequence from the buffer.
+    *
+    * @Returns ColorSequence
+    * 
+    * @latest modification : v4.0
+    * @since v1.8
+    */
+    public readColorSequence(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        let length = this.readU8(offset)
+        offset++;
+        let colorSequence : ColorSequenceKeypoint[] = []
+        // Every colorSequence will have the -1 this is maybe not the right thing to do but its a test.
+        for(let i = 0; i <= length - 1; i++) {
+            this.ensureReadable(offset,4)
+            let t = readf32(this.buffer,offset)
+            let value = this.readColor3(offset + 4)
+            colorSequence[i] = new ColorSequenceKeypoint(t,value)
+            offset += 7
+        }
+        return new ColorSequence(colorSequence)
+    }
+
+    /*
+    * Read a ColorSequence from the buffer using F24.
+    *
+    * @Returns ColorSequence
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readColorSequenceF24(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        let length = this.readU8(offset)
+        offset++;
+        let colorSequence : ColorSequenceKeypoint[] = []
+        for(let i = 0; i <= length - 1; i++) {
+            this.ensureReadable(offset,4)
+            let t = readf32(this.buffer,offset)
+            let value = this.readColor3F24(offset + 4)
+            colorSequence[i] = new ColorSequenceKeypoint(t,value)
+            offset += 13
+        }
+        return new ColorSequence(colorSequence)
+    }
+
+    /*
+    * Read a ColorSequence from the buffer using F32.
+    *
+    * @Returns ColorSequence
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readColorSequenceF32(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        let length = this.readU8(offset)
+        offset++;
+        let colorSequence : ColorSequenceKeypoint[] = []
+        for(let i = 0; i <= length - 1; i++) {
+            this.ensureReadable(offset,4)
+            let t = readf32(this.buffer,offset)
+            let value = this.readColor3F32(offset + 4)
+            colorSequence[i] = new ColorSequenceKeypoint(t,value)
+            offset += 16
+        }
+        return new ColorSequence(colorSequence)
+    }
+
+    /*
+    * Read a ColorSequence from the buffer using F64.
+    *
+    * @Returns ColorSequence
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readColorSequenceF64(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        let length = this.readU8(offset)
+        offset++;
+        let colorSequence : ColorSequenceKeypoint[] = []
+        for(let i = 0;i <= length - 1; i++) {
+            this.ensureReadable(offset,4)
+            let t = readf32(this.buffer,offset)
+            let value = this.readColor3F64(offset + 4)
+            colorSequence[i] = new ColorSequenceKeypoint(t,value)
+            offset += 28
+        }
+        return new ColorSequence(colorSequence)
+    }
+
+    //#endregion
+
+    //#region "[Reader] NumberRange"
+
+    /*
+    * Read a NumberRange from the buffer.
+    *
+    * @Returns NumberRange
+    * 
+    * @latest modification : v4.0
+    * @since v1.8
+    */
+    public readNumberRange(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [min,max] = [
+                readf32(this.buffer,offset),
+                readf32(this.buffer,offset + 4)
+            ]
+            return new NumberRange(min,max)
+        },offset)
+    }
+
+    /*
+    * Read a NumberRange from the buffer using F16.
+    *
+    * @Returns NumberRange
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readNumberRangeF16(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [min,max] = [
+                Extensions.decodeF16(this.buffer,offset),
+                Extensions.decodeF16(this.buffer,offset + 2)
+            ]
+            return new NumberRange(min,max)
+        },offset)
+    }
+
+    /* 
+    * Read a NumberRange from the buffer using F24.
+    *
+    * @Returns NumberRange
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readNumberRangeF24(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let data = readNfp24(this.buffer,2,offset)
+            return new NumberRange(data[0],data[1])
+        },offset)
+    }
+
+    /*
+    * Read a NumberRange from the buffer using F64.
+    *
+    * @Returns NumberRange
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readNumberRangeF64(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        return this.executeReadImplementation(() => {
+            let [min,max] = [
+                readf64(this.buffer,offset),
+                readf64(this.buffer,offset)
+            ]
+            return new NumberRange(min,max)
+        },offset)
+    }
+
+    //#endregion
+
+    //#region "[Reader] NumberSequence"
+
+    /*
+    * Read a NumberSequence from the buffer.
+    * 
+    * @Returns NumberSequence
+    * 
+    * @latest modification : v4.0
+    * @since v1.8
+    */
+    public readNumberSequence(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        let length = this.readU8(offset)
+        offset++;
+        let numberSequence : NumberSequenceKeypoint[] = []
+        for(let i = 0; i <= length - 1; i++) {
+            this.ensureReadable(offset,12)
+            let t = readf32(this.buffer,offset)
+            let value = readf32(this.buffer,offset + 4)
+            let envelope = readf32(this.buffer,offset + 8)
+            numberSequence[i] = new NumberSequenceKeypoint(t,value,envelope)
+            offset += 12
+        }
+        return new NumberSequence(numberSequence)
+    }
+
+    /*
+    * Read a NumberSequence from the buffer using F16.
+    *
+    * @Returns NumberSequence
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readNumberSequenceF16(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        let length = this.readU8(offset)
+        offset++;
+        let numberSequence : NumberSequenceKeypoint[] = []
+        for(let i = 0; i <= length - 1; i++) {
+            this.ensureReadable(offset,10)
+            let t = readf32(this.buffer,offset)
+            let value = Extensions.decodeF16(this.buffer,offset + 4)
+            let envelope = readf32(this.buffer,offset + 6)
+            numberSequence[i] = new NumberSequenceKeypoint(t,value,envelope)
+            offset += 10
+        }
+        return new NumberSequence(numberSequence)
+    }
+
+    /*
+    * Read a NumberSequence from the buffer using F24.
+    *
+    * @Returns NumberSequence
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readNumberSequenceF24(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        let length = this.readU8(offset)
+        offset++;
+        let numberSequence : NumberSequenceKeypoint[] = []
+        for(let i = 0; i <= length - 1; i++) {
+            this.ensureReadable(offset,11)
+            let t = readf32(this.buffer,offset)
+            let [value] = readNfp24(this.buffer,1,offset + 4)
+            let envelope = readf32(this.buffer,offset + 7)
+            numberSequence[i] = new NumberSequenceKeypoint(t,value,envelope)
+            offset += 11
+        }
+        return new NumberSequence(numberSequence)
+    }
+
+    /* 
+    * Read a NumberSequence from the buffer using F64.
+    *
+    * @Returns NumberSequence
+    * 
+    * @latest modification : v4.0
+    * @since v4.0
+    */
+    public readNumberSequenceF64(offset? : number) {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        let length = this.readU8(offset)
+        offset++;
+        let numberSequence : NumberSequenceKeypoint[] = [] 
+        for(let i = 0; i <= length - 1; i++) {
+            this.ensureReadable(offset,16)
+            let t = readf32(this.buffer,offset)
+            let value = readf64(this.buffer,offset + 4)
+            let envelope = readf32(this.buffer,offset + 12)
+            numberSequence[i] = new NumberSequenceKeypoint(t,value,envelope)
+            offset += 16
+        }
+        return new NumberSequence(numberSequence)
     }
 
     //#endregion
