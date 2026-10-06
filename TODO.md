@@ -15,7 +15,7 @@
 ## Rbxts Version
 - Finish readers
 - Finish utility functions of the component
-- Same as Luau more genereic functions
+- Same as Luau more generic functions
 - Rewrite `Extensions` and `Resolver` as abstracted class with static functions
 - Finish serialization with schema and schemaless
 - Test
