@@ -9,13 +9,14 @@
     ```
 - Many others fixes
 - Fixes : Some functions use `ensureReadable` with a byte count that is higher than what is actually required.
+- Fixes : in `.copy` the the function `buffer.copy` returns void but i accidently write `new = buffer.copy()`.
+ 
 
 ----
 
 ## Rbxts Version
-- Finish readers
-- Finish utility functions of the component
 - Same as Luau more generic functions
-- Rewrite `Extensions` and `Resolver` as abstracted class with static functions
+- Rewrite `Extensions` and `Resolver` as abstracted class with static functions and more readable
+- Finish custom readers
 - Finish serialization with schema and schemaless
 - Test

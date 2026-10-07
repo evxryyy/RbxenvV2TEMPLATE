@@ -11,7 +11,8 @@ import * as Resolver from "./packages/resolver"
 import { Bitflag } from "./packages/bitflag"
 
 type WriterIndexCallback = (this : Component,value : defined | unknown) => Component
-type ReaderIndexCallback<R> = (this : Component,value : defined) => R
+type ReaderIndexCallback<R> = (this : Component,value : defined,extra? : unknown) => R
+type SignalConnectionCallback = (newValue : number) => void
 
 // Version control (only once)
 let versionIsVerified = false
@@ -245,20 +246,6 @@ class Component {
     // Methods //
 
     /*
-    * Decompresses a buffer using the provided compression algorithm.
-    *
-    * @Parameters:
-    * - b : buffer,
-    * - algorithm : Enum.CompressionAlgorithm
-    * 
-    * @lastest modification : v4.0
-    * @since v2.6
-    */
-    decompress(algorithm : Enum.CompressionAlgorithm) : buffer {
-        return EncodingService.DecompressBuffer(this.buffer,algorithm)
-    }
-
-    /*
     * Allocates new space to the buffer.
     *
     * @Parameters: size : number
@@ -266,7 +253,7 @@ class Component {
     * 
     * @Returns: Component (this)
     */
-    allocate(size : number) : Component {
+    public allocate(size : number) : Component {
         if(size <= 0) return this;
         let newBuffer = create(bufflen(this.buffer) + size)
         copy(newBuffer,0,this.buffer,0,bufflen(this.buffer))
@@ -2331,7 +2318,9 @@ class Component {
 
     //#endregion
 
-    //#region "[Writer] Custom types"
+    //#endregion
+
+    //#region "[Writer] Custom Types"
 
     /*
     * Writes a value to the buffer using the specified Bitstream type.
@@ -2454,7 +2443,9 @@ class Component {
 
     //#endregion
 
-    //#endregion
+    //#region "[Reader]"
+
+    //#region "[Reader] Primary Types"
 
     //#region "[Reader] Signed Integer"
 
@@ -2909,6 +2900,8 @@ class Component {
 
     //#endregion
 
+    //#endregion
+        
     //#region "[Reader] Roblox Types"
 
     //#region "[Reader] Vector2"
@@ -4040,6 +4033,379 @@ class Component {
     }
 
     //#endregion
+
+    //#region "[Reader] Instance"
+
+    /*
+    * Read an Instance from this.instanceBuffer at the given index (or this.instanceOffset).
+    *
+    * @Returns : Instance
+    * 
+    * @latest modification : v4.0
+    * @since v1.0
+    */
+    public readInstance(instanceOffset? : number) {
+        instanceOffset = (typeOf(instanceOffset) === "number" && instanceOffset <= this.instanceOffset) ? instanceOffset : this.instanceOffset
+        return this.instanceBuffer[instanceOffset]
+    }
+
+    //#endregion
+
+    //#endregion
+
+    //#region "[Reader] Custom Types"
+
+    /*
+    * // TEMPLATE FUNCTION CAUSE RESOLVER IS NOT STABLE AND POLISHED AND LOOKS KINDA UGLY //
+    * Read any target type from the buffer.
+    *
+    * @Generics<T extends Enumeration.BitstreamTypes | unknown[]>
+    * 
+    * @Parameters:
+    * - readType : T
+    * - offset? : number
+    * 
+    * @Returns T
+    * 
+    * @latest modification : v4.0
+    * @since v2.8
+    */
+    public readAs<T extends Enumeration.BitstreamTypes | unknown[]>(
+        readType : T,
+        offset? : number
+    ) : LuaTuple<[T,number?]> {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        switch(typeOf(readType)) {
+            case "table":
+                let typeName = ((readType as Enumeration.BitstreamTableType).Type)
+                if(typeName === "Array") {
+                    let types = ((readType) as Enumeration.BitstreamTableType).Types
+                    let [value,nestedArrayValue] : [unknown[],unknown[]] = [[],[]]
+                    Resolver.resolveArray(types,(t,c,nestedFlag) => {
+                        for(let i = 0; i <= c; i++){
+                            let [element,elementOffset] = this.readAs(t as T,offset)
+                            offset = elementOffset
+                            if(nestedFlag) tblinsert(nestedArrayValue,element)
+                            else tblinsert(value,element);
+                        }
+                        if(nestedFlag) tblinsert(value,tblclone(nestedArrayValue));
+                        tblclear(nestedArrayValue)
+                    })
+                    return $tuple(value as T,offset)
+                }
+                else if(typeName === "Struct") {
+                    let fields = ((readType as Enumeration.BitstreamTableType).Fields)
+                    let value = Resolver.resolveStruct(fields,(t) => {
+                        let [element,elementOffset] = this.readAs(t as T,offset)
+                        offset = elementOffset
+                        return [element]
+                    })
+                    return $tuple(value as T,offset)
+                }
+                else {
+                    let _readTypeAsTables = (readType as Enumeration.BitstreamTableType)
+                    let extra = _readTypeAsTables.Option ? _readTypeAsTables.Option : _readTypeAsTables.Length
+                    if(typeOf(extra) !== "number") {
+                        typeName += extra
+                    }
+                    let element = (this[`read${typeName}` as keyof unknown] as ReaderIndexCallback<T>)(offset,extra)
+                    return $tuple(
+                        element,
+                        offset + Resolver.resolveBytesNeeded(readType as Enumeration.BitstreamTypes,element)
+                    )
+                }
+            default:
+                let element = (this[`read${typeName}` as keyof unknown] as ReaderIndexCallback<T>)(offset)
+                return $tuple(
+                    element,
+                    offset + Resolver.resolveBytesNeeded(readType as Enumeration.BitstreamTypes,element)
+                )
+        }
+    }
+
+    /*
+    * // TEMPLATE FUNCTION CAUSE RESOLVER IS NOT STABLE AND POLISHED AND LOOKS KINDA UGLY //
+    *
+    * Read an array from the buffer.
+    *
+    * @Parameters:
+    * - types : Enumeration.BitstreamTypes[]
+    * - offset? : number
+    * 
+    * @Returns : unknown[]
+    * 
+    * @latest modification : v4.0
+    * @since v2.9
+    */
+    public readArray(
+        types : Enumeration.BitstreamTypes[],
+        offset? : number
+    ) : unknown[] {
+        let [value,nestedArrayValue] : [unknown[],unknown[]] = [[],[]]
+        Resolver.resolveArray(types,(t,c,nestedFlag) => {
+            for(let i = 1; i <= c; i++) {
+                let [element,elementOffset] = this.readAs(t as Enumeration.BitstreamTypes,offset)
+                offset = elementOffset
+                if(nestedFlag) tblinsert(nestedArrayValue,element)
+                else tblinsert(value,element)
+            }
+            if(nestedFlag) tblinsert(value,tblclone(nestedArrayValue));
+            tblclear(nestedArrayValue)
+        })
+        return value
+    }
+
+    /*
+    * // TEMPLATE FUNCTION CAUSE RESOLVER IS NOT STABLE AND POLISHED AND LOOKS KINDA UGLY //
+    *
+    * Read a struct from the buffer.
+    * 
+    * @Parameters:
+    * - schema : Enumeration.StructSchema
+    * - offset? : number
+    * 
+    * @Returns : Record<string,defined>
+    * 
+    * @latest modification : v4.0
+    * @since v3.2
+    */
+    public readStruct(
+        schema : Enumeration.StructSchema,
+        offset? : number
+    ) : Record<string,defined> {
+        return Resolver.resolveStruct(schema.Fields,(t) => {
+            let [element,elementOffset] = this.readAs(t as Enumeration.BitstreamTypes,offset)
+            offset = elementOffset
+            return [element]
+        })
+    }
+
+    //#endregion
+
+    //#endregion
+
+    //#region "[Utility functions]"
+
+    /*
+    * Attach a callback and call it every time a value is written.
+    *
+    * @Parameters:
+    * - callback : SignalConnectionCallback (i.e. : (newOffset : number) => void)
+    * 
+    * @Returns : Connection<[number]>
+    * 
+    * @latest modification : v4.0
+    * @since v2.6
+    */
+    public onOffsetChanged(callback : SignalConnectionCallback) {
+        assert(typeOf(callback) === "function","A valid function must be provided.")
+        return this.offsetChanged.Connect(callback)
+    }
+
+    /*
+    * Attach a callback and call it every time a new amount of space is allocated.
+    *
+    * @Parameters:
+    * - callback : SignalConnectionCallback (i.e. : (newCapacity : number) => void)
+    * 
+    * @Returns : Connection<[number]>
+    * 
+    * @latest modification : v4.0
+    * since v2.6
+    */
+    public onCapacityChanged(callback : SignalConnectionCallback) {
+        assert(typeOf(callback) === "function","A valid function must be provided.")
+        return this.capacityChangedSignal.Connect(callback)
+    }
+
+    /*
+    * Attach a callback and call it every time a new instance is added.
+    *
+    * @Parameters:
+    * - callback : SignalConnectionCallback (i.e. : (newInstanceOffset : number) => void)
+    * 
+    * @Returns : Connection<[number]>
+    * 
+    * @latest modification : v4.0
+    * since v2.6
+    */
+    public onInstanceOffsetChanged(callback : SignalConnectionCallback) {
+        assert(typeOf(callback) === "function","A valid function must be provided.")
+        return this.instanceOffsetChanged.Connect(callback)
+    }
+
+    /*
+    * Decompresses a buffer using the provided compression algorithm.
+    *
+    * @Parameters:
+    * - b : buffer,
+    * - algorithm : Enum.CompressionAlgorithm
+    * 
+    * @lastest modification : v4.0
+    * @since v2.6
+    */
+    public decompress(algorithm : Enum.CompressionAlgorithm) : buffer {
+        return EncodingService.DecompressBuffer(this.buffer,algorithm)
+    }
+
+    /*
+    * Compress the buffer of the actual component using the `EncodingService`
+    *
+    * @Parameters:
+    * - algorithm : Enum.CompressionAlgorithm
+    * 
+    * @Returns : buffer
+    * 
+    * @latest modification : v4.0
+    * @since v2.6
+    */
+    public compress(algorithm : Enum.CompressionAlgorithm,compressLevel? : number) {
+        compressLevel = compressLevel | 1
+        return EncodingService.CompressBuffer(this.buffer,algorithm,clamp(compressLevel,-7,22))
+    }
+
+    /* 
+    * Change the minimum auto allocation size.
+    *
+    * @Parameters:
+    * - num : number
+    * 
+    * @latest modification : v4.0.1
+    * @since v4.0.1
+    */
+    public changeMinimumAutoAllocationSize(num : number) {
+        num = clamp(abs(num),1,BUFFER_MAX_SIZE)
+        this.minimumAutoAllocationSize = num
+    }
+
+    /*
+    * Reset the minimum auto allocation size to 1.
+    *
+    * @latest modification : v4.0.1
+    * @since v4.0.1
+    */
+    public resetMinimumAutoAllocationSize() {
+        this.minimumAutoAllocationSize = 1
+    }
+
+    /*
+    * Reduces the buffer size to match the amount of data that has actually been written.
+    * If the buffer is already fully utilized, no reallocation is performed.
+    * 
+    * @latest modification : v4.0.1
+    * @since v4.0.1
+    */
+    public shrink() {
+        if(bufflen(this.buffer) <= this.offset) return this;
+        let newBuffer = create(this.offset)
+        if(this.offset > 0) {
+            copy(newBuffer,0,this.buffer,0,this.offset)
+        }
+        this.buffer = newBuffer
+        return this
+    }
+
+    /*
+    * Return the actual remaining space of the current buffer
+    *
+    * @latest modification : v4.0
+    * @since v1.2
+    */
+    public getRemainingSpace() {
+        return bufflen(this.buffer) - this.offset
+    }
+
+    /*
+    * Clear the component (signals,buffer etc..)
+    *
+    * @latest modification : v4.0
+    * @since v2.4
+    */
+    public clear() {
+        tblclear(this.instanceBuffer)
+        this.disconnectAllSignals()
+        this.clearBuffer()
+        return this
+    }
+
+    /*
+    * Reset the buffer to the initial state.
+    *
+    * @latest modification : v4.0
+    * @since v2.4
+    */
+    public clearBuffer() {
+        this.buffer = create(bufflen(this.buffer))
+        this.offset = 0
+        this.offsetChanged.Fire(0)
+        return this
+    }
+
+    /*
+    * Create a copy of the component.
+    *
+    * @Returns:
+    * - Component : a copy of the current used component
+    * 
+    * @latest modification : v4.0
+    * @since v2.5
+    */
+    public copy() {
+        let component = Constructor.init({
+            Size : bufflen(this.buffer),
+            UseAutoAllocation : this.useAutoAllocation
+        })
+        copy(component.buffer,0,this.buffer,0,bufflen(this.buffer))
+        component.offset = this.offset
+        component.offsetChanged.Fire(this.offset)
+        return component
+    }
+
+    /*
+    * Disconnect all signals of the component.
+    *
+    * @latest modification : v4.0
+    * @since v2.6
+    */
+    public disconnectAllSignals() {
+        this.offsetChanged.DisconnectAll()
+        this.instanceOffsetChanged.DisconnectAll()
+        this.capacityChangedSignal.DisconnectAll()
+    }
+
+    /*
+    * Enable the auto-allocation of the component.
+    *
+    * @latest modification : v4.0
+    * @since v3.0
+    */
+    public enableAutoAllocate() {
+        this.useAutoAllocation = true
+        return this
+    }
+
+    /*
+    * Disable the auto-allocation of the component.
+    *
+    * @latest modification : v4.0
+    * @since v3.0
+    */
+    public disableAutoAllocate() {
+        this.useAutoAllocation = false
+        return this
+    }
+
+    /*
+    * Destroy the component.
+    *
+    * @latest modification : v4.0
+    * @since v1.2
+    */
+    public destroy() : asserts this is never {
+        this.disconnectAllSignals()
+        this.clear()
+        setmetatable(this,undefined)
+    }
 
     //#endregion
 
