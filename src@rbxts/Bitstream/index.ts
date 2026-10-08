@@ -5,7 +5,7 @@ import { Utilities } from "./packages/utilities"
 import * as Enumeration from "./packages/enumeration"
 import { Constants } from "./packages/constants"
 import { Signal } from "./packages/zignal"
-import * as Extensions from "./packages/extensions"
+import { Extensions } from "./packages/extensions"
 import * as Debugger from "./packages/debugger"
 import * as Resolver from "./packages/resolver"
 import { Bitflag } from "./packages/bitflag"
@@ -2853,7 +2853,9 @@ class Component {
     */
     public readF16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(Extensions.decodeF16,this.buffer,offset)
+        return this.executeReadImplementation(() => {
+            return Extensions.decodeF16(this.buffer,offset)
+        },offset)
     }
 
     /*
