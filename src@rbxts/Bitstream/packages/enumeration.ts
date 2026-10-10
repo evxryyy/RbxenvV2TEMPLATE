@@ -106,72 +106,76 @@ export type BitstreamTypesName =
 
 
 // Represents the types that can be used at seriliazation and at dynamic runtime (writeAs, etc...)
-export type BitstreamTypes =
-	| "I8"
-	| "I16"
-	| "I24"
-	| "I32"
-	| "I40"
-	| "I48"
-	| "I54"
-	| "U1"
-	| "U8"
-	| "U16"
-	| "U24"
-	| "U32"
-	| "U40"
-	| "U48"
-	| "U54"
-	| "F8"
-	| "F16"
-	| "F24"
-	| "F32"
-	| "F64"
-	| {["Type"] : "String", Length? : number} // Optional for `writeAs`
-	| "PrefixedString"
-	| "Bool1"
-	| "Bool8"
-	| "Vector2float24"
-	| "Vector2float32"
-	| "Vector2int16"
-	| "Vector2uint16"
-	| "Vector2"
-	| "Vector3float24"
-	| "Vector3float32"
-	| "Vector3int16"
-	| "Vector3uint16"
-	| "Vector3"
-	| "CFrameQuaternion"
-	| "CFrameF24"
-	| "CFrameF32"
-	| "CFrameF64"
-	| "CFrameQuantized"
-	| "Color3"
-	| "Color3F24"
-	| "Color3F32"
-	| "Color3F64"
-	| "UDim"
-	| "UDim2"
-	| "RectFloat24"
-	| "RectFloat32"
-	| "Rect"
-	| "Enum"
-	| "Region3"
-	| "Region3Quaternion"
-	| "Region3CFrameF24"
-	| "Region3CFrameF32"
-	| "Region3Quantized"
-	| {["Type"] : "RotationCurveKey", Option : Types.RotationCurveKeyOption}
-	| {["Type"] : "FloatCurveKey", Option : Types.FloatCurveKeyOption}
-	| {["Type"] : "ColorSequence", Option : Types.ColorSequenceOption}
-	| "NumberRange"
-	| "NumberRangeF16"
-	| "NumberRangeF24"
-	| "NumberRangeF64"
-	| {["Type"] : "NumberSequence", Option : Types.NumberSequenceOption}
-	| "Instance"
-	| ArraySchema
-	| StructSchema
+type ValidSignedIntegerBits = 8 | 16 | 24 | 32 | 40 | 48 | 54
+type ValidUnsignedIntegerBits = 1 | 8 | 16 | 24 | 32 | 40 | 48 | 54
+type ValidFloatBits = 8 | 16 | 24 | 32 | 64
+
+export type BitstreamTypes = 
+	`I${ValidSignedIntegerBits}` | `I${ValidSignedIntegerBits}:${number}` 
+	| // Unsigned integer //
+	`U${ValidUnsignedIntegerBits}` | `U${ValidUnsignedIntegerBits}:${number}`
+	| // Float //
+	`F${ValidFloatBits}` | `F${ValidFloatBits}:${number}`
+	| // String //
+	{Type : "String" | `String${number}`,Length? : number}
+	| "PrefixedString" | `PrefixedString:${number}`
+	| // Booleans //
+	"Bool1" | "Bool8" | `Bool1:${number}` | `Bool8:${number}`
+	| // Vector2 //
+	"Vector2float24" | `Vector2float24:${number}` |
+	"Vector2float32" | `Vector2float32:${number}` |
+	"Vector2int16" | `Vector2int16:${number}` |
+	"Vector2uint16" | `Vector2uint16:${number}` |
+	"Vector2" | `Vector2:${number}`
+	| // Vector3 // 
+	"Vector3float24" | `Vector3float24:${number}` |
+	"Vector3float32" | `Vector3float32:${number}` |
+	"Vector3int16" | `Vector3int16:${number}` |
+	"Vector3uint16" | `Vector3uint16:${number}` |
+	"Vector3" | `Vector3:${number}`
+	| // CFrame //
+	"CFrameQuaternion" | `CFrameQuaternion:${number}` |
+	"CFrameF24" | `CFrameF24:${number}` |
+	"CFrameF32" | `CFrameF32:${number}` |
+	"CFrameF64" | `CFrameF64:${number}` |
+	"CFrameQuantized" | `CFrameQuantized:${number}`
+	| // Color3 //
+	"Color3" | `Color3:${number}` |
+	"Color3F24" | `Color3F24:${number}` |
+	"Color3F32" | `Color3F32:${number}` |
+	"Color3F64" | `Color3F64:${number}` 
+	| // UDim //
+	"UDim" | `UDim:${number}` |
+	"UDim2" | `UDim2:${number}`
+	| // Rect //
+	"RectFloat24" | `RectFloat24:${number}` |
+	"RectFloat32" | `RectFloat32:${number}` |
+	"Rect" | `Rect:${number}`
+	| // Enum //
+	"Enum" | `Enum:${number}`
+	| // Region3 //
+	"Region3" | `Region3:${number}` |
+	"Region3Quaternion" | `Region3Quaternion:${number}` |
+	"Region3CFrameF24" | `Region3CFrameF24:${number}` |
+	"Region3CFrameF32" | `Region3CFrameF32:${number}` |
+	"Region3Quantized" | `Region3Quantized:${number}`
+	| // RotationCurveKey //
+	{["Type"] : "RotationCurveKey" | `RotationCurveKey:${number}`, Option : Types.RotationCurveKeyOption}
+	| // FloatCurveKey //
+	{["Type"] : "FloatCurveKey" | `FloatCurveKey:${number}`, Option : Types.FloatCurveKeyOption}
+	| // ColorSequence //
+	{["Type"] : "ColorSequence" | `ColorSequence:${number}`, Option : Types.ColorSequenceOption}
+	| // NumberRange //
+	"NumberRange" | `NumberRange:${number}` |
+	"NumberRangeF16" | `NumberRangeF16:${number}` |
+	"NumberRangeF24" | `NumberRangeF24:${number}` |
+	"NumberRangeF64" | `NumberRangeF64:${number}`
+	| // NumberSequence //
+	{["Type"] : "NumberSequence" | `NumberSequence:${number}`, Option : Types.NumberSequenceOption}
+	| // Instance //
+	"Instance" | `Instance:${number}`
+	| // Custom //
+	ArraySchema | StructSchema
 
 
 // Serialization types
