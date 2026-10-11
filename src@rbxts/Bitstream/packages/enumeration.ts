@@ -184,7 +184,7 @@ export type SerializationSchema = Record<string,BitstreamTypes>
 // Array and struct types
 export type ArraySchema = {
 	["Type"] : "Array",
-	["Types"] : Record<string,BitstreamTypes>,
+	["Types"] : BitstreamTypes[],
 }
 
 export type StructSchema = {

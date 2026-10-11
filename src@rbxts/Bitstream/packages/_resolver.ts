@@ -31,6 +31,32 @@ export abstract class Resolver {
 
     //#region Private methods
 
+    // Map a RobloxType into a Bitstream Type this mostly used for schemaless serialization.
+    private static readonly MAPPED_RBX_TYPES = {
+        ["CFrame"] : "CFrameF32",
+        ["Color3"] : "Color3",
+        ["Rect"] : "Rect",
+        ["Region3"] : "Region3CFrameF32",
+        ["RotationCurveKey"] : {
+            Type : "RotationCurveKey",
+            Option : "CFrameF32"
+        },
+        ["FloatCurveKey"] : {
+            Type : "FloatCurveKey",
+            Option : "F32"
+        },
+        ["ColorSequence"] : {
+            Type : "ColorSequence",
+            Option : "F32"
+        },
+    }
+    
+    // A simple regex that removes the trailing type suffix (F24, F32, etc.).
+    private static readonly getTechinalPartRegex = "/(CFrameF64|CFrameF32|F32|F64)$/"
+
+    // Same as the other one but remove the prefix (ColorSequenceF24 -> F24).
+    private static readonly getPrefixPartRegex = "^(NumberSequence|FloatCurveKey|RotationCurveKey|ColorSequence)"
+
     /*
     * Check whether the current input (the array containing Bitstream types)
     * includes any nested arrays. Return true if any are found; otherwise, return false.
@@ -108,6 +134,41 @@ export abstract class Resolver {
             default:
                 const element = callback(fieldType)
                 return element
+        }
+    }
+
+    /*
+    * A helper function that simplifies resolveArraySchema. 
+    * It can recursively call resolveArraySchema when a nested array is detected. 
+    * Each element is re-indexed in its original order.
+    */
+    private static resolveElement<T>(element : T) : Enumeration.BitstreamTypes {
+        const valueType = this.resolveValueType(element)
+        switch(valueType) {
+            case "String":
+                return {
+                    Type : "String",
+                    Length : (element as string).size()
+                }
+            case "Array":
+                let subArray = this.resolveArraySchema(element as unknown[])
+                if(this.containNestedArray(subArray.Types)) {
+                    // TODO: thrown error
+                }
+                return subArray
+            case "Struct":
+                // TODO: thrown error
+            default:
+                if(valueType.match(this.getPrefixPartRegex)[0]) {
+                    let originalName = valueType.match(this.getPrefixPartRegex)[0] as string
+                    let option = valueType.match(this.getTechinalPartRegex)[0] as string
+                    // Reverse: ColorSequenceF32 back to {Type : ColorSequence,Option : F32}
+                    return {
+                        Type : originalName as Enumeration.BitstreamTypesName,
+                        Option : option
+                    } as Enumeration.BitstreamTypes
+                }
+                else return valueType as Enumeration.BitstreamTypes
         }
     }
 
@@ -196,6 +257,104 @@ export abstract class Resolver {
             }
         }
         return bytes
+    }
+
+    /*
+    * Returns the corresponding Bitstream type based on the given Roblox type (e.g., number → U[n]).
+    */
+    public static resolveValueType(value : unknown) : Enumeration.BitstreamTypesName {
+        const valueType = typeOf(value)
+        switch(valueType) {
+            case "number":
+                const isInt = (value as number) % 1 === 0
+                const valueData = Utilities.getEquivalentBytesInfoFromNumber(value as number,true)
+                let symbol = ''
+                if(isInt !== true) {
+                    symbol = 'F'
+                    if(valueData.bits < 32 && valueData.bits > 64) valueData.bits = 32;
+                }
+                else if(valueData.isUnsigned) symbol = 'U'
+                else symbol = 'I';
+                return `${symbol}${valueData.bits}` as Enumeration.BitstreamTypesName;
+            case "string":
+                return "String";
+            case "boolean":
+                return "Bool1";
+            case "table":
+                if(Utilities.isBool8(value as boolean[])) return "Bool8"
+                else if(Utilities.isArray(value as unknown[])) return "Array"
+                return "Struct"
+            default:
+                let enumerationName = "" 
+                let mappedTypes = this.MAPPED_RBX_TYPES[value as keyof defined]
+                if(typeOf(mappedTypes) === "string") {
+                    enumerationName = mappedTypes as string
+                }
+                else if(typeOf(mappedTypes) === "table") {
+                    enumerationName = `${valueType}${(mappedTypes as Enumeration.BitstreamTableType).Option}`
+                }
+                else enumerationName = valueType;
+                return enumerationName as Enumeration.BitstreamTypesName
+        }
+    }
+
+    /*
+    * Given an array of type T[], the function returns its schema with the corresponding types in the agreed order, 
+    * preserving the original order as closely as possible.
+    */
+    public static resolveArraySchema<T>(array : T[]) : Enumeration.ArraySchema {
+        let schema = {
+            Type : "Array",
+            Types : [] as Enumeration.BitstreamTypes[],
+        } as Enumeration.ArraySchema
+        for(let i = 0; i < array.size(); i++) {
+            let element = this.resolveElement(array[i])
+            tblinsert(schema.Types,element)
+        }
+        return schema
+    }
+
+    /*
+    * Builds a schema from the given struct (Record<string, defined>), 
+    * preserving the order of its corresponding keys.
+    */
+    public static resolveStructSchema(struct : Record<string,defined>) : Enumeration.StructSchema {
+        let schema = {
+            Type : "Struct",
+            Fields : {} as Record<string,defined>
+        }
+        for(const [key,value] of pairs(struct)) {
+            const valueType = this.resolveValueType(value)
+            if(valueType === "String") {
+                schema.Fields[key] = {Type : "String",Length : (value as string).size()}
+            }
+            else if(valueType === "Array") {
+                const subSchema = this.resolveArraySchema(value as unknown[])
+                if(this.containNestedArray(subSchema.Types)) {
+                    // TODO: thrown error
+                }
+                schema.Fields[key] = subSchema
+                continue
+            }
+            else if(valueType === "Struct") {
+                const subStruct = this.resolveStructSchema(value)
+                if(this.containNestedStruct(subStruct.Fields)) {
+                    // TODO: thrown error
+                }
+                schema.Fields[key] = subStruct
+                continue
+            }
+            else schema.Fields[key] = valueType
+        }
+        return schema as Enumeration.StructSchema
+    }
+
+    /*
+    * Calls resolveArraySchema or resolveStructSchema depending on the given type.
+    */
+    public static resolveSchema(param : Record<string,defined> | unknown[]) {
+        if(Utilities.isArray(param as unknown[])) return this.resolveArraySchema(param as unknown[]);
+        return this.resolveStructSchema(param as Record<string,defined>)
     }
 
     //#endregion
