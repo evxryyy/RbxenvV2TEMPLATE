@@ -7,7 +7,7 @@ import { Constants } from "./packages/constants"
 import { Signal } from "./packages/zignal"
 import { Extensions } from "./packages/extensions"
 import * as Debugger from "./packages/debugger"
-import * as Resolver from "./packages/resolver"
+import { Resolver } from "./packages/resolver"
 import { Bitflag } from "./packages/bitflag"
 
 type WriterIndexCallback = (this : Component,value : defined | unknown) => Component
@@ -2348,7 +2348,7 @@ class Component {
                 })
             }
             else if(typeName === "Struct") {
-                Resolver.iterateStruct(formatted.Fields,(value as Record<string,unknown>),(t,v) => {
+                Resolver.iterateStruct(formatted as Enumeration.StructSchema,(value as Record<string,unknown>),(t,v) => {
                     this.writeAs(t as Enumeration.BitstreamTypes,v as defined)
                 })
             }
@@ -2433,7 +2433,7 @@ class Component {
     public writeStruct(schema : Enumeration.StructSchema,struct : Record<string,defined>) {
         assert(typeOf(schema) === "table","First argument is expected to be a table corresponding to a StructSchema")
         assert(typeOf(struct) === "table","Second argument is expected to be a dictionary")
-        Resolver.iterateStruct(schema.Fields,struct,(t,v) => {
+        Resolver.iterateStruct(schema,struct,(t,v) => {
             this.writeAs(t as Enumeration.BitstreamTypes,v)
         })
         return this
@@ -4058,7 +4058,7 @@ class Component {
     //#region "[Reader] Custom Types"
 
     /*
-    * // TEMPLATE FUNCTION CAUSE RESOLVER IS NOT STABLE AND POLISHED AND LOOKS KINDA UGLY //
+    * // BEING REWRITTEN //
     * Read any target type from the buffer.
     *
     * @Generics<T extends Enumeration.BitstreamTypes | unknown[]>
@@ -4075,58 +4075,12 @@ class Component {
     public readAs<T extends Enumeration.BitstreamTypes | unknown[]>(
         readType : T,
         offset? : number
-    ) : LuaTuple<[T,number?]> {
-        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        switch(typeOf(readType)) {
-            case "table":
-                let typeName = ((readType as Enumeration.BitstreamTableType).Type)
-                if(typeName === "Array") {
-                    let types = ((readType) as Enumeration.BitstreamTableType).Types
-                    let [value,nestedArrayValue] : [unknown[],unknown[]] = [[],[]]
-                    Resolver.resolveArray(types,(t,c,nestedFlag) => {
-                        for(let i = 0; i <= c; i++){
-                            let [element,elementOffset] = this.readAs(t as T,offset)
-                            offset = elementOffset
-                            if(nestedFlag) tblinsert(nestedArrayValue,element)
-                            else tblinsert(value,element);
-                        }
-                        if(nestedFlag) tblinsert(value,tblclone(nestedArrayValue));
-                        tblclear(nestedArrayValue)
-                    })
-                    return $tuple(value as T,offset)
-                }
-                else if(typeName === "Struct") {
-                    let fields = ((readType as Enumeration.BitstreamTableType).Fields)
-                    let value = Resolver.resolveStruct(fields,(t) => {
-                        let [element,elementOffset] = this.readAs(t as T,offset)
-                        offset = elementOffset
-                        return [element]
-                    })
-                    return $tuple(value as T,offset)
-                }
-                else {
-                    let _readTypeAsTables = (readType as Enumeration.BitstreamTableType)
-                    let extra = _readTypeAsTables.Option ? _readTypeAsTables.Option : _readTypeAsTables.Length
-                    if(typeOf(extra) !== "number") {
-                        typeName += extra
-                    }
-                    let element = (this[`read${typeName}` as keyof unknown] as ReaderIndexCallback<T>)(offset,extra)
-                    return $tuple(
-                        element,
-                        offset + Resolver.resolveBytesNeeded(readType as Enumeration.BitstreamTypes,element)
-                    )
-                }
-            default:
-                let element = (this[`read${typeName}` as keyof unknown] as ReaderIndexCallback<T>)(offset)
-                return $tuple(
-                    element,
-                    offset + Resolver.resolveBytesNeeded(readType as Enumeration.BitstreamTypes,element)
-                )
-        }
+    ) {
+
     }
 
     /*
-    * // TEMPLATE FUNCTION CAUSE RESOLVER IS NOT STABLE AND POLISHED AND LOOKS KINDA UGLY //
+    * // BEING REWRITTEN //
     *
     * Read an array from the buffer.
     *
@@ -4142,23 +4096,12 @@ class Component {
     public readArray(
         types : Enumeration.BitstreamTypes[],
         offset? : number
-    ) : unknown[] {
-        let [value,nestedArrayValue] : [unknown[],unknown[]] = [[],[]]
-        Resolver.resolveArray(types,(t,c,nestedFlag) => {
-            for(let i = 1; i <= c; i++) {
-                let [element,elementOffset] = this.readAs(t as Enumeration.BitstreamTypes,offset)
-                offset = elementOffset
-                if(nestedFlag) tblinsert(nestedArrayValue,element)
-                else tblinsert(value,element)
-            }
-            if(nestedFlag) tblinsert(value,tblclone(nestedArrayValue));
-            tblclear(nestedArrayValue)
-        })
-        return value
+    ) {
+
     }
 
     /*
-    * // TEMPLATE FUNCTION CAUSE RESOLVER IS NOT STABLE AND POLISHED AND LOOKS KINDA UGLY //
+    * // BEING REWRITTEN //
     *
     * Read a struct from the buffer.
     * 
@@ -4174,12 +4117,8 @@ class Component {
     public readStruct(
         schema : Enumeration.StructSchema,
         offset? : number
-    ) : Record<string,defined> {
-        return Resolver.resolveStruct(schema.Fields,(t) => {
-            let [element,elementOffset] = this.readAs(t as Enumeration.BitstreamTypes,offset)
-            offset = elementOffset
-            return [element]
-        })
+    ) {
+
     }
 
     //#endregion

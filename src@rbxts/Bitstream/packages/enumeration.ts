@@ -105,11 +105,11 @@ export type BitstreamTypesName =
 	| "Struct"
 
 
-// Represents the types that can be used at seriliazation and at dynamic runtime (writeAs, etc...)
 type ValidSignedIntegerBits = 8 | 16 | 24 | 32 | 40 | 48 | 54
 type ValidUnsignedIntegerBits = 1 | 8 | 16 | 24 | 32 | 40 | 48 | 54
 type ValidFloatBits = 8 | 16 | 24 | 32 | 64
 
+// Represents the types that can be used at seriliazation and at dynamic runtime (writeAs, etc...)
 export type BitstreamTypes = 
 	`I${ValidSignedIntegerBits}` | `I${ValidSignedIntegerBits}:${number}` 
 	| // Unsigned integer //

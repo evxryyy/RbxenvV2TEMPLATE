@@ -1,6 +1,6 @@
 import * as Enumeration from "./enumeration"
 import { Utilities } from "./utilities"
-import * as Resolver from "./resolver"
+import { Resolver } from "./resolver"
 
 const create = buffer.create; const fromstring = buffer.fromstring; const bufftostring = buffer.tostring
 const bufflen = buffer.len; const readbits = buffer.readbits; const readi8 = buffer.readi8

@@ -14,7 +14,6 @@
 ----
 
 ## Rbxts Version
-- Rewrite `Resolver` as abstracted class with static functions and more readable (Working on)
 - Make `zignal.ts` actually readable since its not my lib but i ported it to @rbxts
 - Make any ported luau code to @rbxts very different and looks real modern ts and not some copy and paste code.
 - Same as Luau more generic functions

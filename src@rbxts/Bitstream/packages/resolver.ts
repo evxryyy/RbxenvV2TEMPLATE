@@ -2,482 +2,475 @@ import * as Enumeration from "./enumeration"
 import { Constants } from "./constants"
 import { Utilities } from "./utilities"
 
-const strmatch = string.match; const strsub = string.sub; const strrep = string.rep;
+const strmatch = string.match;
 
-const tblclone = table.clone; const tblclear = table.clear;
-
-type BitstreamTableType = Enumeration.BitstreamTableType
-
-type IterationCallback = (type : unknown, value : unknown) => void
-type ResolveCallback = (type : unknown,count : number,nestedFlag? : boolean) => void
-type ResolveValueCallback = (type : unknown) => defined[]
-
-const ERROR_MESSAGES_LIST = {
-	CANT_WRITE_STRUCT_IN_ARRAY : `
-		Trying to write a struct in an array, but it's not supported.
-		You can only write simple types in arrays and nested arrays.
-		Please see : \`#### API LINK ###\`
-	`,
-	CANT_WRITE_DEEPLY_NESTED_ARRAY : `
-		Trying to write a table nested more than two levels deep, but it's not supported.
-		You can only write simple types in arrays and nested arrays.
-		I.e. : {10,{{10}},10} -> error you can only do {10,10,10} or {{10,10,10},{10,10,10}}.
-	`,
-	CANT_WRITE_DEEPLY_NESTED_STRUCT : "Cannot write a deeply nested struct. Example: { value: { nested: { tooDeep: ... } } }",
-}
-
-const MAPPED_RBX_TYPES = {
-	["CFrame"] : "CFrameF32",
-	["Color3"] : "Color3",
-	["Rect"] : "Rect",
-	["Region3"] : "Region3CFrameF32",
-	["RotationCurveKey"] : {
-		Type : "RotationCurveKey",
-		Option : "CFrameF32"
-	},
-	["FloatCurveKey"] : {
-		Type : "FloatCurveKey",
-		Option : "F32"
-	},
-	["ColorSequence"] : {
-		Type : "ColorSequence",
-		Option : "F32"
-	},
-}
-
-function containNestedArray(valueTypes : Enumeration.BitstreamTypes[]) : boolean {
-	for(let i = 1; i < valueTypes.size(); i++){
-		let elementType = valueTypes[i]
-		if(typeOf(elementType) === "table") {
-			let result = ((elementType as BitstreamTableType).Type) === "Array" ||
-				 ((elementType as BitstreamTableType).Type) === "Struct" ? true : false
-			if(result) return true
-		}
-	}
-	return false
-}
-
-function containNestedStruct(structFields : Record<string,Enumeration.BitstreamTypes>) : boolean {
-	for(const [_,field] of pairs(structFields)) {
-		if(typeOf(field) === "table") {
-			let result = ((field as BitstreamTableType).Type) === "Struct" ? true : false
-			if(result) return true
-		}
-	}
-	return false
-}
-
-// Simple abbrevation for `resolveStruct` when an array is detected.
-function resolveArrayTypes(
-	valuesTypes : Enumeration.BitstreamTypes[],
-	source : Record<string | number,defined>,
-	callback : ResolveValueCallback
-) : void {
-	let nestedArray : defined[] = []
-	resolveArray(valuesTypes,(targetType,count,isNested) => {
-		for(let i = 1; i < count; i++) {
-			let [element,elementOffset] = callback(targetType)
-			if(isNested) {
-				nestedArray.insert(nestedArray.size(),element)
-			}
-			else {
-				table.insert(source,element)
-			}
-		}
-		if(isNested) {
-			table.insert(source,table.clone(nestedArray))
-		}
-		table.clear(nestedArray)
-	})
-}
+const tblinsert = table.insert; const tblclone = table.clone; const tblclear = table.clear
 
 /*
-	Iterates over an array schema and executes a callback for each resolved value.
-
-	Supports repeated types using the `:<count>` syntax (e.g. `"U8:3"`),
-	as well as nested arrays.
-
-	Multi-dimensional arrays are currently not supported.
-	
-	@Note: only used for writeAs/Serialize and nothing else.
-
-	@Parameters:
-		- valueTypes : Enumeration.BitstreamTypes[],
-		- values : unknown[]
-		- callback : IterationCallback
-
-	@Returns: ()
+* Accepts a type <T extends BitstreamTypes> and a value of type <A>, returns void, and is used when iterating through structs and arrays.
 */
-export function iterateArray(
-	valueTypes : Enumeration.BitstreamTypes[],
-	values : unknown[],
-	callback : IterationCallback,
-) {
-	let array_size = valueTypes.size()
-	let array_index = 1
-	for(let i = 1; i < array_size; i++){
-		let elementType = valueTypes[i] as Enumeration.BitstreamTypes | Enumeration.BitstreamTypesName
-		let element = values[array_index]
-		if(typeOf(elementType) === "table" && ((elementType as BitstreamTableType)).Type) {
-			if((elementType as BitstreamTableType).Type === "Struct") {
-				error(ERROR_MESSAGES_LIST.CANT_WRITE_STRUCT_IN_ARRAY,2)
-			}
-			// Nested array
-			if(containNestedArray((elementType as BitstreamTableType).Types)) { continue }
-			iterateArray(
-				(elementType as BitstreamTableType).Types,
-				element as unknown[],
-				callback
-			)
-		}
-		// Handles types like String or RotationCurveKey etc...
-		else if(typeOf(elementType) === "table") {
-			let typeHasCount = tonumber(
-				strmatch((elementType as BitstreamTableType).Type as string,":(%d+)")
-			)
-			let cloneTypedInfo = table.clone(elementType as BitstreamTableType)
-			cloneTypedInfo.Type = strmatch(cloneTypedInfo.Type,"([^:]+)")[0] as Enumeration.BitstreamTypesName
-			if(typeHasCount) {
-				for(let i = 1; i < typeHasCount; i++){
-					callback(cloneTypedInfo,values[array_index])
-					array_index += 1
-				}
-			}
-			else {
-				callback(cloneTypedInfo,values[array_index])
-				array_index += 1
-			}
-		}
-		else {
-			// Simples types or type with count that came from an array (i.e U8:3)
-			let typeHasCount = tonumber(strmatch(elementType as string,":(%d+)")[0])
-			if(typeHasCount) {
-				let elementTypeOf = strmatch(elementType as string,"([^:]+)")[0]
-				for(let i = 1; i < typeHasCount; i++) {
-					callback(elementTypeOf,element)
-					array_index += 1
-				}
-			}
-			else {
-				callback(elementType,values[array_index])
-				array_index += 1
-			}
-		}
-	}
-}
+type IterationCallback<T extends Enumeration.BitstreamTypes,A> = (type : T,value : A) => void
 
 /*
-	Iterates over a struct schema and executes a callback for each resolved value.
-
-	Supports nested structs and arrays.
-
-	Multi-dimensional arrays and structs are currently not supported.
-
-	@Note: only used for writeAs/Serialize and nothing else.
-
-	@Parameters:
-		- structFields : Record<string,Enumeration.BitstreamTypes>
-		- values : Record<string,unknown>,
-		- callback : IterationCallback
-
-	@Returns: ()
+* A type used to track type occurrences,-
+* such as the total number of U8 entries, with an optional parameter for nested arrays.
 */
-export function iterateStruct(
-	structFields : Record<string,Enumeration.BitstreamTypes>,
-	values : Record<string,unknown>,
-	callback : IterationCallback
-) {
-	for(const [i,v] of pairs(structFields)) {
-		if(values[i] === undefined) { continue }
-		if(typeOf(v) === "table") {
-			if((v as BitstreamTableType).Type === "Array") {
-				iterateArray((v as BitstreamTableType).Types,values[i] as unknown[],callback)
-			}
-			else if((v as BitstreamTableType).Type === "Struct") {
-				if(containNestedStruct((v as BitstreamTableType).Fields)) continue
-				iterateStruct(
-					(v as BitstreamTableType).Fields,
-					values[i] as Record<string,unknown>,
-					callback
-				)
-			}
-		}
-		else {
-			callback(v,values[i])
-		}
-	}
-}
+type ResolveCallback<T extends Enumeration.BitstreamTypes> = 
+    (type : T,count : number,hasNestedFlag? : boolean) => void
+
+// The returned value must be the Roblox equivalent of the type provided in the Type argument (e.g., U8 -> number).
+type ResolveValueCallback = (type : Enumeration.BitstreamTypes) => defined
+
+// Simple type for catching functions returning the amount of bytes needed in `Constants.ts`
+type ConstantsIndexCallback = (...args : unknown[]) => number
 
 /*
-	Resolves an array of bitstream types and executes a callback for each type.
-	
-	@Parameters:
-		- valuesTypes : Enumeration.BitstreamTypes[],
-		- callback : ResolveCallback,
-		- isNested? : boolean
-		
-	@Returns: ()
+* @Class: Resolver
+*
+* A utility class for resolving custom types, such as arrays and structs, as well as handling byte calculations and resolving types provided by Bitstream.
+* Note: This class is still being rewritten and is not yet complete. Thank you for your patience.
 */
-export function resolveArray(
-	valuesTypes : Enumeration.BitstreamTypes[],
-	callback : ResolveCallback,
-	isNested? : boolean,
-) {
-	for(let i = 1; i < valuesTypes.size(); i++) {
-		let typeInfo = valuesTypes[i] as Enumeration.BitstreamTypes | Enumeration.BitstreamTypesName
-		if(typeOf(typeInfo) === "table") {
-			if((typeInfo as BitstreamTableType).Type === "Struct") {
-				error(ERROR_MESSAGES_LIST.CANT_WRITE_STRUCT_IN_ARRAY,2)
-			}
-			// Check nested array
-			if(containNestedArray((typeInfo as BitstreamTableType).Types)) continue;
-			resolveArray(
-				(typeInfo as BitstreamTableType).Types,
-				callback,
-				true
-			)
-		}
-		// Handles table types (String,RotationCurveKey etc...)
-		else if(typeOf(typeInfo) === "table") {
-			let typeHasCount = tonumber(
-				strmatch((typeInfo as BitstreamTableType).Type as string,":(%d+)")[0]
-			);
-			(typeInfo as BitstreamTableType).Type = strmatch((typeInfo as BitstreamTableType).Type,"([^:]+)")[0] as Enumeration.BitstreamTypesName;
-			callback(typeInfo,typeHasCount || 1,isNested)
-		}
-		// Simples types or type with count that came from an array (i.e U8:3)
-		else {
-			let elementTypeOf = strmatch(typeInfo as Enumeration.BitstreamTypesName,"([^:]+)")[0]
-			let typeHasCount = tonumber(strmatch(typeInfo as Enumeration.BitstreamTypesName,":(%d+)")[0])
-			callback(elementTypeOf,typeHasCount || 1,isNested)
-		}
-	}
-}
+export abstract class Resolver {
 
-/*
-	Resolves a struct and executes a callback for each field.
-	
-	@Parameters:
-		- structFields : Record<string,Enumeration.BitstreamTypes>,
-		- callback : ResolveValueCallback
-		
-	@Returns: Record<string,defined>
-*/
-export function resolveStruct(
-	structFields : Record<string,Enumeration.BitstreamTypes>,
-	callback : ResolveValueCallback
-) : Record<string,defined> {
-	let resolve_struct : Record<string,defined> = {}
-	for(const [i,v] of pairs(structFields)) {
-		if(typeOf(v) === "table") {
-			// Resolve array tables
-			if((v as BitstreamTableType).Type === "Array") {
-				if(resolve_struct[i] === undefined) resolve_struct[i] = []
-				resolveArrayTypes((v as BitstreamTableType).Types,resolve_struct[i],callback)
-			}
-			// Handle sub-struct
-			else if((v as BitstreamTableType).Type === "Struct") {
-				if(resolve_struct[i] === undefined) resolve_struct[i] = {}
-				if(containNestedStruct((v as BitstreamTableType).Fields)) continue;
-				for(const [j,k] of pairs((v as BitstreamTableType).Fields)) {
-					if(typeOf(k) === "table" && (k as BitstreamTableType).Type === "Array") {
-						if((resolve_struct[i] as Record<string,defined>)[j] === undefined) { 
-							(resolve_struct[i] as Record<string,defined>)[j] = {}
-						}
-						resolveArrayTypes(
-							(k as BitstreamTableType).Types,
-							(resolve_struct[i] as Record<string,defined>)[j],
-							callback
-						)
-					}
-					else {
-						let [element,elementOffset] = callback(k)
-						resolve_struct[i] = element
-					}
-				}
-			}
-			// Handle simple types
-			else {
-				let [element,elementOffset] = callback(v)
-				resolve_struct[i] = element
-			}
-		}
-	}
-	return resolve_struct
-}
+    //#region Private methods
 
-/*
-	Resolves the number of bytes needed to encode a value.
-	
-	@Parameters:
-		- dataType : string
-		- value : any
-		
-	@Returns: number
-*/
-export function resolveBytesNeeded(
-	typeInfo : Enumeration.BitstreamTypes,
-	value : unknown
-) : number {
-	let bytes = 0
-	if(typeOf(typeInfo) === "table") {
-		let extra = (typeInfo as BitstreamTableType).Length || (typeInfo as BitstreamTableType).Option
-		let expressionIndex = Constants.REQUIRED_BYTES[(typeInfo as BitstreamTableType).Type as keyof defined] as (...args : unknown[]) => number
-		bytes += expressionIndex(value,extra)
-	}
-	else {
-		let elementIndex = Constants.REQUIRED_BYTES[(typeInfo as BitstreamTableType).Type as keyof defined]
-		if(typeOf(elementIndex) === "function") {
-			bytes += (elementIndex as (...args : unknown[]) => number)(value)
-		}
-		else {
-			bytes += (elementIndex as number)
-		}
-	}
-	return bytes
-}
+    // Map a RobloxType into a Bitstream Type this mostly used for schemaless serialization.
+    private static readonly MAPPED_RBX_TYPES = {
+        ["CFrame"] : "CFrameF32",
+        ["Color3"] : "Color3",
+        ["Rect"] : "Rect",
+        ["Region3"] : "Region3CFrameF32",
+        ["RotationCurveKey"] : {
+            Type : "RotationCurveKey",
+            Option : "CFrameF32"
+        },
+        ["FloatCurveKey"] : {
+            Type : "FloatCurveKey",
+            Option : "F32"
+        },
+        ["ColorSequence"] : {
+            Type : "ColorSequence",
+            Option : "F32"
+        },
+    }
+    
+    // A simple regex that removes the trailing type suffix (F24, F32, etc.).
+    private static readonly getTechinalPartRegex = "/(CFrameF64|CFrameF32|F32|F64)$/"
 
-/*
-	Resolves the type of a value.
-	
-	Some Roblox types can be redirected via the MAPPED_RBX_TYPES table.
-	For example, "CFrame" is redirected to "CFrameF32".
-	You can change the target variation by modifying the corresponding mapping entry.
-	
-	@Parameters:
-		- value : unknown
-		
-	@Returns: string (i.e. Enumeration.BitstreamTypesName)
-*/
-export function resolveValueType(value : unknown) : Enumeration.BitstreamTypesName {
-	const valueType = typeOf(value)
-	let enumerationName = ""
-	if(valueType === "number") {
-		const isInt = (value as number % 1 === 0)
-		let valueData = Utilities.getEquivalentBytesInfoFromNumber(value as number)
-		valueData.bits = valueData.bytes * 8
-		if(isInt !== true) enumerationName = `F${valueData.bits}`
-		else if(valueData.isUnsigned) enumerationName = `U${valueData.bits}`
-		else enumerationName = `I${valueData.bits}`
-	}
-	else if(valueType === "string") enumerationName = "String"
-	else if(valueType === "boolean") enumerationName = "Bool1"
-	else if(valueType === "table") {
-		if(Utilities.isBool8(value as [boolean])) enumerationName = "Bool8"
-		else if(Utilities.isArray(value as object)) enumerationName = "Array"
-		else enumerationName = "Struct"
-	}
-	else if(MAPPED_RBX_TYPES[valueType as keyof defined]) {
-		if((MAPPED_RBX_TYPES[valueType as keyof defined] as BitstreamTableType).Option) {
-			enumerationName = `${valueType}${(MAPPED_RBX_TYPES[valueType as keyof defined] as BitstreamTableType).Option}`
-		}
-		else enumerationName = `${MAPPED_RBX_TYPES[valueType as keyof defined]}`
-	}
-	else enumerationName = Enumeration.BistreamEnumeration[valueType as keyof defined]
-	return enumerationName as Enumeration.BitstreamTypesName
-}
+    // Same as the other one but remove the prefix (ColorSequenceF24 -> F24).
+    private static readonly getPrefixPartRegex = "^(NumberSequence|FloatCurveKey|RotationCurveKey|ColorSequence)"
 
-/*
-	Rebuilds the schema representation of an array from its contained values.
-	
-	Each element is analyzed to determine its corresponding type, including nested arrays,
-	while validating unsupported structures and invalid deep nesting cases.
-	
-	@Parameters:
-		- array : Array<T>
-		
-	@Returns: ArraySchema
-*/
-export function resolveArraySchema<T>(array : Array<T>) : Enumeration.ArraySchema {
-	let schema = {
-		Type : "Array",
-		Types : {}
-	}
-	for(let i = 1; i < array.size(); i++){
-		let valueType = resolveValueType(array[i])
-		if(valueType === "String"){
-			table.insert(schema.Types,{
-				Type : "String",
-				Length : (array[i] as string).size()
-			})
-		}
-		else if(valueType === "Array") {
-			let subSchema = resolveArraySchema(array[i] as unknown[])
-			table.insert(schema.Types,subSchema)
-			continue
-		}
-		else if(valueType === "Struct") {
-			error(ERROR_MESSAGES_LIST.CANT_WRITE_STRUCT_IN_ARRAY,2)
-		}
-		else table.insert(schema.Types,valueType)
-	}
-	let schemaSize = (schema.Types as defined[]).size()
-	for(let i = 1; i < schemaSize; i++) {
-		let typeInfo = (schema.Types as Record<number,Enumeration.BitstreamTypes>)[i]
-		if(typeOf(typeInfo) === "table" && (typeInfo as BitstreamTableType).Type === "Array") {
-			// Verify for unvalid nested array.
-			if(containNestedArray((typeInfo as BitstreamTableType).Types)) continue
-		}
-	}
-	return schema as Enumeration.ArraySchema
-}
+    // Extract the <count> pattern ex : ColorSequence:3 -> 3
+    private static readonly extractCountPattern = ":(%d+)"
 
-/*
-	Rebuilds the schema representation of a struct from its fields.
-	
-	Each field is assigned to a corresponding type, including nested structs, 
-	while validating unsupported structures and invalid deep nesting cases.
-	
-	@Parameters:
-		- struct : Record<string,defined>
-		
-	@Returns: StructSchema
-*/
-export function resolveStructSchema(struct : Record<string,defined>) : Enumeration.StructSchema {
-	let schema = {
-		Type : "Struct",
-		Fields : {} as Record<string,defined>
-	}
-	for(const [k,v] of pairs(struct)) {
-		let valueType = resolveValueType(v)
-		if(valueType === "String") {
-			schema.Fields[k] = {Type : "String",Length : (v as string).size()}
-		}
-		else if(valueType === "Array") {
-			let subSchema = resolveArraySchema(v as unknown[])
-			schema.Fields[k] = subSchema
-			continue
-		}
-		else if(valueType === "Struct") {
-			let subStruct = resolveStructSchema(v as Record<string,defined>)
-			schema.Fields[k] = subStruct
-			continue
-		}
-		else schema.Fields[k] = valueType
-	}
-	for(const [k,_] of pairs(struct)) {
-		let typeInfo = schema.Fields[k]
-		// nested array check
-		if(typeOf(typeInfo) === "table" && (typeInfo as BitstreamTableType).Type === "Array") {
-			if(containNestedArray((typeInfo as BitstreamTableType).Types)) error(ERROR_MESSAGES_LIST.CANT_WRITE_DEEPLY_NESTED_ARRAY,2)
-		}
-		// nested struct check
-		else if(typeOf(typeInfo) === "table" && (typeInfo as BitstreamTableType).Type === "Struct") {
-			if(containNestedStruct((typeInfo as BitstreamTableType).Fields)) error(ERROR_MESSAGES_LIST.CANT_WRITE_DEEPLY_NESTED_STRUCT,2)
-		}
-	}
-	return schema as Enumeration.StructSchema
-}
+    // Remove the <count> pattern ex : ColorSequence:3 -> ColorSequence
+    private static readonly removeCountPattern = "([^:]+)"
 
-/*
-	Rebuilds the schema representation dynamically from the given data.
-	
-	@Parameters:
-		- data : Record<string,defined> | Array<unknown>
-		
-	@Returns: StructSchema | ArraySchema
-*/
-export function resolveSchema(data : Record<string,defined> | Array<unknown>) {
-	if(Utilities.isArray(data)) return resolveArraySchema(data as Array<unknown>);
-	return resolveStructSchema(data as Record<string,defined>)
+    /*
+    * Check whether the current input (the array containing Bitstream types)
+    * includes any nested arrays. Return true if any are found; otherwise, return false.
+    */
+    private static containNestedArray(t : Enumeration.BitstreamTypes[]) {
+        t.forEach((elementType) => {
+            if(typeOf(elementType) === "table") {
+                let result = elementType as Enumeration.BitstreamTableType
+                let nestedFlag = result.Type === "Array" || result.Type === "Struct" ? true : false
+                if(nestedFlag) return nestedFlag
+            }
+        })
+        return false
+    }
+
+    /*
+    * Similar to containNestedArray, but checks only for structs.
+    */
+    private static containNestedStruct(struct : Record<string,defined>) {
+        for(const [_,field] of pairs(struct)) {
+            if(typeOf(field) === "table") {
+                let nestedFlag = (field as Enumeration.BitstreamTableType).Type === "Struct" ? true : false
+                if(nestedFlag) return nestedFlag
+            }
+        }
+        return false
+    }
+
+    /*
+    * A function called by iterateArray for each element it processes. 
+    * It checks whether the element contains a :count pattern, such as "U8:3". 
+    * This also works with types such as { Type = "RotationCurveKey:2", Option = "Normal" }.
+    * 
+    * If a nested array is detected, the function recursively calls iterateArray. It returns void.
+    * 
+    * Both callback parameters must be configured correctly:
+    * - originalCallback must be the same callback passed to iterateArray.
+    * - indexCallback must increment the index for the next iteration, following the same logic used in iterateArray.
+    */
+    private static iterateElement<T extends Enumeration.BitstreamTypes,A>(
+        elementType : T,
+        element : A,
+        orignalCallback : IterationCallback<T,A>,
+        indexCallback : (valueType : T) => void
+    ) : void {
+        switch(typeOf(elementType)) {
+            case "table":
+                let _TEMPelementType = elementType as Enumeration.BitstreamTableType
+                if(_TEMPelementType.Type === "Array") {
+                    if(this.containNestedArray(_TEMPelementType.Types)) {
+                        // TODO: thrown error
+                    }
+                    this.iterateArray(_TEMPelementType.Types,element as A[],orignalCallback)
+                }
+                else if(_TEMPelementType.Type === "Struct") {
+                    // TODO: thrown error
+                }
+                else {
+                    let typeHasCount = tonumber(strmatch(_TEMPelementType.Type as string,this.extractCountPattern)[0])
+                    let cloneTypedInfo = tblclone(_TEMPelementType)
+                    cloneTypedInfo.Type = strmatch(cloneTypedInfo.Type,this.removeCountPattern)[0] as Enumeration.BitstreamTypesName
+                    if(typeHasCount) {
+                        for(let i = 1; i <= typeHasCount; i++) {
+                            indexCallback((cloneTypedInfo as unknown) as T)
+                        }
+                    }
+                    else { indexCallback((cloneTypedInfo as unknown) as T) }
+                }
+                break;
+            default:
+                let typeHasCount = tonumber(strmatch(elementType as string,this.extractCountPattern)[0])
+                if(typeHasCount) {
+                    let elementTypeOf = strmatch(elementType as string,this.removeCountPattern)[0]
+                    for(let i = 1; i <= typeHasCount; i++) {
+                        indexCallback(elementTypeOf as T)
+                    }
+                }
+                else indexCallback(elementType)
+                break;
+        }
+    }
+
+
+    /*
+    * Iterate through each element of the array and include it in the source provided as the second argument. 
+    * This function is used by resolveField, which is called directly by resolveStruct. 
+    * Note that this function returns void.
+    */
+    private static resolveArrayTypes(
+        arrayTypes : Enumeration.BitstreamTypes[],
+        source : defined[],
+        callback : ResolveValueCallback
+    ) {
+        let nestedArray : defined[] = []
+        this.resolveArray(arrayTypes,(targetType,count,hasNestedFlag) => {
+            for(let i = 1; i < count; i++) {
+                let element = callback(targetType)
+                if(hasNestedFlag) {
+                    nestedArray.insert(nestedArray.size(),element)
+                }
+                else tblinsert(source,element)
+            }
+            if(hasNestedFlag) tblinsert(source,tblclone(nestedArray));
+            tblclear(nestedArray)
+        })
+    }
+
+    /*
+    * A helper function that simplifies resolveStruct when retrieving elements. 
+    * It can recursively call resolveStruct if nested structs are detected during iteration. 
+    * Each elements are indexed using their original keys from the schema provided to resolveStruct.
+    */
+    private static resolveField(
+        fieldType : Enumeration.BitstreamTypes,
+        callback : ResolveValueCallback
+    ) : defined {
+        if(typeOf(fieldType) !== "table") {
+            const element = callback(fieldType)
+            return element
+        }
+        const tableType = fieldType as Enumeration.BitstreamTableType
+        switch(tableType.Type) {
+            case "Array":
+                const result : defined[] = []
+                this.resolveArrayTypes(tableType.Types,result,callback)
+                return;
+            case "Struct":
+                const tableFields = (tableType.Fields as unknown) as Enumeration.StructSchema
+                return this.resolveStruct(tableFields,callback);
+            default:
+                const element = callback(fieldType)
+                return element
+        }
+    }
+
+    /*
+    * A helper function that simplifies resolveArraySchema. 
+    * It can recursively call resolveArraySchema when a nested array is detected. 
+    * Each element is re-indexed in its original order.
+    */
+    private static resolveElement<T>(element : T) : Enumeration.BitstreamTypes {
+        const valueType = this.resolveValueType(element)
+        switch(valueType) {
+            case "String":
+                return {
+                    Type : "String",
+                    Length : (element as string).size()
+                }
+            case "Array":
+                let subArray = this.resolveArraySchema(element as unknown[])
+                if(this.containNestedArray(subArray.Types)) {
+                    // TODO: thrown error
+                }
+                return subArray
+            case "Struct":
+                // TODO: thrown error
+            default:
+                if(valueType.match(this.getPrefixPartRegex)[0]) {
+                    let originalName = valueType.match(this.getPrefixPartRegex)[0] as string
+                    let option = valueType.match(this.getTechinalPartRegex)[0] as string
+                    // Reverse: ColorSequenceF32 back to {Type : ColorSequence,Option : F32}
+                    return {
+                        Type : originalName as Enumeration.BitstreamTypesName,
+                        Option : option
+                    } as Enumeration.BitstreamTypes
+                }
+                else return valueType as Enumeration.BitstreamTypes
+        }
+    }
+
+    //#endregion
+
+    //#region Public methods
+
+    /*
+    * Iterates through all elements in the arrayTypes argument and invokes the provided callback for each element. 
+    * For example, the callback can have the following signature: 
+    * `(valueType: BitstreamTypes, value: A) => {...}`
+    */
+    public static iterateArray<T extends Enumeration.BitstreamTypes,A>(
+        arrayTypes : Enumeration.BitstreamTypes[],
+        array : A[],
+        callback : IterationCallback<T,A>
+    ) {
+        let array_index = 0
+        for(let i = 0; i < arrayTypes.size(); i++) {
+            let elementType = arrayTypes[i] as T
+            this.iterateElement(elementType,array[array_index],callback,(valueType) => {
+                callback(valueType,array[array_index])
+                array_index++;
+            })
+        }
+    }
+
+    /*
+    * Iterates through all structs, including arrays and nested structs, using their corresponding keys. 
+    * The callback can have the following signature:
+    * `(valueType: BitstreamTypes, value: A | unknown) => {}`
+    */
+    public static iterateStruct<T extends Enumeration.BitstreamTypes,A>(
+        struct : Enumeration.StructSchema,
+        values : Record<string,unknown>,
+        callback : IterationCallback<T,A>
+    ) {
+        for(const [key,value] of pairs(struct.Fields)) {
+            if(values[key] === undefined) continue;
+            if(typeOf(value) === "table") {
+                let _TEMPValue = value as Enumeration.BitstreamTableType
+                if(_TEMPValue.Type === "Array") {
+                    this.iterateArray(_TEMPValue.Types,values[key] as A[],callback)
+                }
+                else if(_TEMPValue.Type === "Struct") {
+                    if(this.containNestedStruct(_TEMPValue.Fields)) continue
+                    this.iterateStruct(
+                        _TEMPValue as Enumeration.StructSchema,
+                        values[key] as Record<string,unknown>,
+                        callback
+                    )
+                }
+            }
+            else callback(value as T,values[key] as A)
+        }
+    }
+
+    /*
+    * A function that invokes the callback specified in the arguments.
+    * For example, when implementing this function, you should use a method that reads data (a reader method). 
+    * In Bitstream(Component).readAs, this function is used to read individual types, 
+    * regardless of how many times they are specified (e.g., "U8:3" will call readAs three times).
+    */
+    public static resolveArray<T extends Enumeration.BitstreamTypes>(
+        arrayTypes :  Enumeration.BitstreamTypes[],
+        callback : ResolveCallback<T>,
+        isNested? : boolean
+    ) {
+        for(let i = 0; i < arrayTypes.size(); i++) {
+            let typeInfo = arrayTypes[i]
+            let _TEMPtypeInfo = typeInfo as Enumeration.BitstreamTableType
+            if(typeOf(typeInfo) === "table") {
+                let typeName = _TEMPtypeInfo.Type
+                if(typeName === "Struct") {
+                    // TODO: thrown error
+                }
+                else if(typeName === "Array") {
+                    let elementTypes = _TEMPtypeInfo.Types
+                    if(this.containNestedArray(elementTypes)) continue;
+                    this.resolveArray(_TEMPtypeInfo.Types,callback,true)
+                }
+                else {
+                    let typeHasCount = tonumber(strmatch(_TEMPtypeInfo.Type,this.extractCountPattern)[0])
+                    let formattedType = strmatch(_TEMPtypeInfo.Type,this.removeCountPattern)[0]
+                    callback(formattedType as T,typeHasCount)
+                }
+            }
+            // Simples types or type with count that came from an array (i.e U8:3)
+            else {
+                let elementTypeOf = strmatch(typeInfo as string,this.extractCountPattern)[0]
+                let typeHasCount = tonumber(strmatch(typeInfo as string,this.removeCountPattern)[0])
+                callback(elementTypeOf as T,typeHasCount)
+            }
+        }
+    }
+
+    /*
+    * Reconstructs the struct with values matching their respective types. 
+    * The callback must also handle the type argument passed to it. 
+    * Refer to the struct-reading section of Bitstream(Component).readAs for an example of how to use it. 
+    * The callback argument is directly defined as BitstreamTypes.
+    */
+    public static resolveStruct(
+        struct : Enumeration.StructSchema,
+        callback : ResolveValueCallback
+    ) : Record<string,defined> {
+        let resolvedStruct : Record<string,defined> = {}
+        for(const [fieldName,fieldType] of pairs(struct.Fields)) {
+            resolvedStruct[fieldName] = this.resolveField(fieldType,callback)
+        }
+        return resolvedStruct
+    }
+
+    /*
+    * Returns the number of bytes required for the specified type. 
+    * Note that this only works for primitive types, not arrays or structs.
+    */
+    public static resolveBytesNeeded(
+        typeInfo : Enumeration.BitstreamTypes,
+        value : defined
+    ) : number {
+        let bytes = 0
+        let _TEMPtypeInfo = typeInfo as Enumeration.BitstreamTableType
+        if(typeOf(typeInfo) === "table") {
+            let extra = (_TEMPtypeInfo.Length || _TEMPtypeInfo.Option)
+            let expressionIndex = Constants.REQUIRED_BYTES[_TEMPtypeInfo.Type as keyof defined] as ConstantsIndexCallback
+            bytes += expressionIndex(value,extra)
+        }
+        else {
+            let elementIndex = Constants.REQUIRED_BYTES[_TEMPtypeInfo.Type as keyof defined] as unknown
+            if(typeIs(elementIndex,"function")) {
+                bytes += elementIndex(value)
+            }
+            else {
+                bytes += (elementIndex as number)
+            }
+        }
+        return bytes
+    }
+
+    /*
+    * Returns the corresponding Bitstream type based on the given Roblox type (e.g., number → U[n]).
+    */
+    public static resolveValueType(value : unknown) : Enumeration.BitstreamTypesName {
+        const valueType = typeOf(value)
+        switch(valueType) {
+            case "number":
+                const isInt = (value as number) % 1 === 0
+                const valueData = Utilities.getEquivalentBytesInfoFromNumber(value as number,true)
+                let symbol = ''
+                if(isInt !== true) {
+                    symbol = 'F'
+                    if(valueData.bits < 32 && valueData.bits > 64) valueData.bits = 32;
+                }
+                else if(valueData.isUnsigned) symbol = 'U'
+                else symbol = 'I';
+                return `${symbol}${valueData.bits}` as Enumeration.BitstreamTypesName;
+            case "string":
+                return "String";
+            case "boolean":
+                return "Bool1";
+            case "table":
+                if(Utilities.isBool8(value as boolean[])) return "Bool8"
+                else if(Utilities.isArray(value as unknown[])) return "Array"
+                return "Struct"
+            default:
+                let enumerationName = "" 
+                let mappedTypes = this.MAPPED_RBX_TYPES[value as keyof defined]
+                if(typeOf(mappedTypes) === "string") {
+                    enumerationName = mappedTypes as string
+                }
+                else if(typeOf(mappedTypes) === "table") {
+                    enumerationName = `${valueType}${(mappedTypes as Enumeration.BitstreamTableType).Option}`
+                }
+                else enumerationName = valueType;
+                return enumerationName as Enumeration.BitstreamTypesName
+        }
+    }
+
+    /*
+    * Given an array of type T[], the function returns its schema with the corresponding types in the agreed order, 
+    * preserving the original order as closely as possible.
+    */
+    public static resolveArraySchema<T>(array : T[]) : Enumeration.ArraySchema {
+        let schema = {
+            Type : "Array",
+            Types : [] as Enumeration.BitstreamTypes[],
+        } as Enumeration.ArraySchema
+        for(let i = 0; i < array.size(); i++) {
+            let element = this.resolveElement(array[i])
+            tblinsert(schema.Types,element)
+        }
+        return schema
+    }
+
+    /*
+    * Builds a schema from the given struct (Record<string, defined>), 
+    * preserving the order of its corresponding keys.
+    */
+    public static resolveStructSchema(struct : Record<string,defined>) : Enumeration.StructSchema {
+        let schema = {
+            Type : "Struct",
+            Fields : {} as Record<string,defined>
+        }
+        for(const [key,value] of pairs(struct)) {
+            const valueType = this.resolveValueType(value)
+            if(valueType === "String") {
+                schema.Fields[key] = {Type : "String",Length : (value as string).size()}
+            }
+            else if(valueType === "Array") {
+                const subSchema = this.resolveArraySchema(value as unknown[])
+                if(this.containNestedArray(subSchema.Types)) {
+                    // TODO: thrown error
+                }
+                schema.Fields[key] = subSchema
+                continue
+            }
+            else if(valueType === "Struct") {
+                const subStruct = this.resolveStructSchema(value)
+                if(this.containNestedStruct(subStruct.Fields)) {
+                    // TODO: thrown error
+                }
+                schema.Fields[key] = subStruct
+                continue
+            }
+            else schema.Fields[key] = valueType
+        }
+        return schema as Enumeration.StructSchema
+    }
+
+    /*
+    * Calls resolveArraySchema or resolveStructSchema depending on the given type.
+    */
+    public static resolveSchema(param : Record<string,defined> | unknown[]) {
+        if(Utilities.isArray(param as unknown[])) return this.resolveArraySchema(param as unknown[]);
+        return this.resolveStructSchema(param as Record<string,defined>)
+    }
+
+    //#endregion
+
 }
