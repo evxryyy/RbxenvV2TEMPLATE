@@ -54,6 +54,21 @@ export abstract class Resolver {
         },
     }
     
+    // A list of all possible errors that can occur when calling certain functions.
+    private static readonly ERROR_LIST = {
+        DEEPLY_NESTED_ARRAY : `
+        A deeply nested array was detected during iteration. Deeply nested arrays (e.g., "[ [ [ 10 ] ] ]" ) are not supported; 
+        only one level of nesting (e.g., [ [ 10 ] ] ) is supported.
+        `,
+        DEEPLY_NESTED_STRUCT : `
+        A deeply nested struct was detected during iteration. 
+        Deeply nested structs (e.g., "[ Outer = [ Inner = [ Value = 10 ] ] ]") are not supported; 
+        only one level of nesting (e.g., "[ Inner = [ Value = 10 "] ]") is supported.
+        `,
+        ITERATE_STRUCT_IN_ARRAY : `Cannot iterate a struct inside an array.`,
+
+    }
+
     // A simple regex that removes the trailing type suffix (F24, F32, etc.).
     private static readonly getTechinalPartRegex = "/(CFrameF64|CFrameF32|F32|F64)$/"
 
@@ -116,12 +131,12 @@ export abstract class Resolver {
                 let _TEMPelementType = elementType as Enumeration.BitstreamTableType
                 if(_TEMPelementType.Type === "Array") {
                     if(this.containNestedArray(_TEMPelementType.Types)) {
-                        // TODO: thrown error
+                        error(this.ERROR_LIST.DEEPLY_NESTED_ARRAY)
                     }
                     this.iterateArray(_TEMPelementType.Types,element as A[],orignalCallback)
                 }
                 else if(_TEMPelementType.Type === "Struct") {
-                    // TODO: thrown error
+                    error(this.ERROR_LIST.ITERATE_STRUCT_IN_ARRAY)
                 }
                 else {
                     let typeHasCount = tonumber(strmatch(_TEMPelementType.Type as string,this.extractCountPattern)[0])
@@ -217,11 +232,11 @@ export abstract class Resolver {
             case "Array":
                 let subArray = this.resolveArraySchema(element as unknown[])
                 if(this.containNestedArray(subArray.Types)) {
-                    // TODO: thrown error
+                    error(this.ERROR_LIST.DEEPLY_NESTED_ARRAY)
                 }
                 return subArray
             case "Struct":
-                // TODO: thrown error
+                error(this.ERROR_LIST.ITERATE_STRUCT_IN_ARRAY)
             default:
                 if(valueType.match(this.getPrefixPartRegex)[0]) {
                     let originalName = valueType.match(this.getPrefixPartRegex)[0] as string
@@ -307,7 +322,7 @@ export abstract class Resolver {
             if(typeOf(typeInfo) === "table") {
                 let typeName = _TEMPtypeInfo.Type
                 if(typeName === "Struct") {
-                    // TODO: thrown error
+                    error(this.ERROR_LIST.ITERATE_STRUCT_IN_ARRAY)
                 }
                 else if(typeName === "Array") {
                     let elementTypes = _TEMPtypeInfo.Types
@@ -445,7 +460,7 @@ export abstract class Resolver {
             else if(valueType === "Array") {
                 const subSchema = this.resolveArraySchema(value as unknown[])
                 if(this.containNestedArray(subSchema.Types)) {
-                    // TODO: thrown error
+                   error(this.ERROR_LIST.DEEPLY_NESTED_ARRAY)
                 }
                 schema.Fields[key] = subSchema
                 continue
@@ -453,7 +468,7 @@ export abstract class Resolver {
             else if(valueType === "Struct") {
                 const subStruct = this.resolveStructSchema(value)
                 if(this.containNestedStruct(subStruct.Fields)) {
-                    // TODO: thrown error
+                    error(this.ERROR_LIST.DEEPLY_NESTED_STRUCT)
                 }
                 schema.Fields[key] = subStruct
                 continue
