@@ -1,4 +1,8 @@
-import * as Enumeration from "./enumeration"
+import { 
+    BitstreamTypes,
+    BitstreamTableType,
+    BitstreamTypesName 
+} from "./enumeration"
 import { Utilities } from "./utilities"
 import { Resolver } from "./resolver"
 
@@ -23,7 +27,6 @@ const str_gsub = string.gsub; const str_upper = string.upper; const str_lower = 
 const str_rep = string.rep; const str_split = string.split; const str_pack = string.pack
 const str_packsize = string.packsize; const str_unpack = string.unpack
 
-type BitstreamTableType = Enumeration.BitstreamTableType
 
 const TYPE_IDS = {
     I8 : 0x00,
@@ -147,9 +150,9 @@ type BitflagBuffer = {
     offset : number,
 }
 
-type Array = Enumeration.BitstreamTypes[]
+type Array = BitstreamTypes[]
 
-type Struct = Record<string,Enumeration.BitstreamTypes>
+type Struct = Record<string,BitstreamTypes>
 
 type WriteStructParameters = {
     markerBuffer : BitflagBuffer,
@@ -182,7 +185,7 @@ function ensureReadable(data : BitflagBuffer,offset : number,bytes : number) : b
     return true;
 }
 
-function containNestedArray(valueTypes : Enumeration.BitstreamTypes[]) : boolean {
+function containNestedArray(valueTypes : BitstreamTypes[]) : boolean {
     for(let i = 1; i < valueTypes.size(); i++){
         let elementType = valueTypes[i]
         if(typeOf(elementType) === "table") {
@@ -194,7 +197,7 @@ function containNestedArray(valueTypes : Enumeration.BitstreamTypes[]) : boolean
     return false
 }
 
-function containNestedStruct(structFields : Record<string,Enumeration.BitstreamTypes>) : boolean {
+function containNestedStruct(structFields : Record<string,BitstreamTypes>) : boolean {
     for(const [_,field] of pairs(structFields)) {
         if(typeOf(field) === "table") {
             let result = ((field as BitstreamTableType).Type) === "Struct" ? true : false
@@ -241,7 +244,7 @@ export abstract class Bitflag {
 
     static write(
         data : BitflagBuffer, 
-        flag : Enumeration.BitstreamTypesName,
+        flag : BitstreamTypesName,
         ...args : unknown[]
     ) : void {
         if(flag === "String") {

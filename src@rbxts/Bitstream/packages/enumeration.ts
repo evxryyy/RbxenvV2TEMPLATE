@@ -1,50 +1,16 @@
-/*
-	Bitstream - Buffer Type Enumeration
-
-	author : evxry_ll
-
-	Purpose:
-	This module defines the full set of supported buffer types used by Bitstream.
-
-	It acts as a strict, type-safe enumeration mapping each buffer type name
-	to a numeric identifier.
-
-	Design goals:
-	- Strong typing for all buffer primitives
-	- Centralized definition of supported serialization types
-	- Avoid accidental modification (frozen structure)
-
-	Notes:
-	- This enumeration is static and should not be modified at runtime.
-	- Any change here affects serialization compatibility.
-	- Values are explicit and must remain stable across versions.
-*/
-
-
 import * as Types from "./typeHelper"
 
-// Represents all supported types in Bitstream.
+// A utility type designed to simplify BitstreamTypes and BitstreamTypesNames
+type ValidSignedIntegerBits = 8 | 16 | 24 | 32 | 40 | 48 | 54
+type ValidUnsignedIntegerBits = 1 | 8 | 16 | 24 | 32 | 40 | 48 | 54
+type ValidFloatBits = 8 | 16 | 24 | 32 | 64
+
+//#region Name of all availables bitstream types.
+
 export type BitstreamTypesName =
-	| "I8"
-	| "I16"
-	| "I24"
-	| "I32"
-	| "I40"
-	| "I48"
-	| "I54"
-	| "U1"
-	| "U8"
-	| "U16"
-	| "U24"
-	| "U32"
-	| "U40"
-	| "U48"
-	| "U54"
-	| "F8"
-	| "F16"
-	| "F24"
-	| "F32"
-	| "F64"
+	| `I${ValidSignedIntegerBits}`
+	| `U${ValidUnsignedIntegerBits}`
+	| `F${ValidFloatBits}`
 	| "String"
 	| "PrefixedString"
 	| "Bool1"
@@ -105,11 +71,9 @@ export type BitstreamTypesName =
 	| "Struct"
 
 
-type ValidSignedIntegerBits = 8 | 16 | 24 | 32 | 40 | 48 | 54
-type ValidUnsignedIntegerBits = 1 | 8 | 16 | 24 | 32 | 40 | 48 | 54
-type ValidFloatBits = 8 | 16 | 24 | 32 | 64
+//#endregion
 
-// Represents the types that can be used at seriliazation and at dynamic runtime (writeAs, etc...)
+//#region List of all availables bitstream types (not names, actual types).
 export type BitstreamTypes = 
 	`I${ValidSignedIntegerBits}` | `I${ValidSignedIntegerBits}:${number}` 
 	| // Unsigned integer //
@@ -178,10 +142,10 @@ export type BitstreamTypes =
 	ArraySchema | StructSchema
 
 
-// Serialization types
-export type SerializationSchema = Record<string,BitstreamTypes>
+//#endregion
 
-// Array and struct types
+//#region Struct/Array and transform types
+
 export type ArraySchema = {
 	["Type"] : "Array",
 	["Types"] : BitstreamTypes[],
@@ -192,7 +156,6 @@ export type StructSchema = {
 	["Fields"] : Record<string,BitstreamTypes>,
 }
 
-// Regroup all tables types into one single type (used for type casting)
 export type BitstreamTableType = {
     Type : BitstreamTypesName,
     Types : BitstreamTypes[],
@@ -201,101 +164,118 @@ export type BitstreamTableType = {
 	Option : string,
 }
 
-/*
-	Runtime enumeration instance.
+//#endregion
 
-	Represents the full set of supported buffer types with stable numeric IDs.
+export abstract class Enumeration {
 
-	IMPORTANT:
-	- These IDs are part of serialization compatibility
-	- Any change must be versioned explicitly
-*/
-export const BistreamEnumeration = table.freeze({
-    I8 : 0x01,
-	I16 : 0x02,
-	I24 : 0x03,
-	I32 : 0x04,
-	I40 : 0x05,
-	I48 : 0x06,
-	I54 : 0x07,
+	// A list of all currently supported types.
+	public static readonly BitstreamEnumeration : Record<BitstreamTypesName,number> = {
+		I8: 0x01,
+		I16: 0x02,
+		I24: 0x03,
+		I32: 0x04,
+		I40: 0x05,
+		I48: 0x06,
+		I54: 0x07,
 
-	U1 : 0x08,
-	U8 : 0x09,
-	U16 : 0x0A,
-	U24 : 0x0B,
-	U32 : 0x0C,
-	U40 : 0x0D,
-	U48 : 0x0E,
-	U54 : 0x0F,
+		U1: 0x08,
+		U8: 0x09,
+		U16: 0x0A,
+		U24: 0x0B,
+		U32: 0x0C,
+		U40: 0x0D,
+		U48: 0x0E,
+		U54: 0x0F,
 
-	F8 : 0x10,
-	F16 : 0x11,
-	F24 : 0x12,
-	F32 : 0x13,
-	F64 : 0x14,
+		F8: 0x10,
+		F16: 0x11,
+		F24: 0x12,
+		F32: 0x13,
+		F64: 0x14,
 
-	String : 0x15,
-	PrefixedString : 0x16,
+		String: 0x15,
+		PrefixedString: 0x16,
 
-	Bool1 : 0x17,
-	Bool8 : 0x18,
+		Bool1: 0x17,
+		Bool8: 0x18,
 
-	Vector2float32 : 0x19,
-	Vector2int16 : 0x1A,
-	Vector2uint16 : 0x1B,
-	Vector2 : 0x1C,
+		Vector2float32: 0x19,
+		Vector2int16: 0x1A,
+		Vector2uint16: 0x1B,
+		Vector2: 0x1C,
+		Vector2float24: 0x3A,
 
-	Vector3float32 : 0x1D,
-	Vector3int16 : 0x1E,
-	Vector3uint16 : 0x1F,
-	Vector3 : 0x20,
+		Vector3float32: 0x1D,
+		Vector3int16: 0x1E,
+		Vector3uint16: 0x1F,
+		Vector3: 0x20,
+		Vector3float24: 0x3B,
 
-	CFrameQuaternion : 0x21,
-	CFrameF32 : 0x22,
-	CFrameF64 : 0x23,
-	CFrameQuantized : 0x24,
+		CFrameQuaternion: 0x21,
+		CFrameF32: 0x22,
+		CFrameF64: 0x23,
+		CFrameQuantized: 0x24,
+		CFrameF24: 0x3C,
 
-	Color3 : 0x25,
-	Color3F32 : 0x26,
-	Color3F64 : 0x27,
+		Color3: 0x25,
+		Color3F32: 0x26,
+		Color3F64: 0x27,
+		Color3F24: 0x3D,
 
-	UDim : 0x28,
-	UDim2 : 0x29,
+		UDim: 0x28,
+		UDim2: 0x29,
 
-	RectFloat32 : 0x2A,
-	Rect : 0x2B,
+		RectFloat32: 0x2A,
+		Rect: 0x2B,
+		RectFloat24: 0x3E,
 
-	Enum : 0x2C,
+		Enum: 0x2C,
 
-	Region3 : 0x2D,
-	Region3Quaternion : 0x2E,
-	Region3CFrameF32 : 0x2F,
-	Region3Quantized : 0x30,
+		Region3: 0x2D,
+		Region3Quaternion: 0x2E,
+		Region3CFrameF32: 0x2F,
+		Region3Quantized: 0x30,
+		Region3CFrameF24: 0x3F,
 
-	RotationCurveKey : 0x31,
+		RotationCurveKey: 0x31,
+		RotationCurveKeyQuaternion: 0x40,
+		RotationCurveKeyCFrameF24: 0x41,
+		RotationCurveKeyCFrameF32: 0x42,
+		RotationCurveKeyQuantized: 0x43,
 
-	FloatCurveKey : 0x32,
+		FloatCurveKey: 0x32,
+		FloatCurveKeyF16: 0x44,
+		FloatCurveKeyF24: 0x45,
+		FloatCurveKeyF32: 0x46,
 
-	ColorSequence : 0x33,
+		ColorSequence: 0x33,
+		ColorSequenceF24: 0x47,
+		ColorSequenceF32: 0x48,
+		ColorSequenceF64: 0x49,
 
-	NumberRange : 0x34,
-	NumberRangeF16 : 0x35,
-	NumberRangeF64 : 0x36,
+		NumberRange: 0x34,
+		NumberRangeF16: 0x35,
+		NumberRangeF64: 0x36,
+		NumberRangeF24: 0x4A,
 
-	NumberSequence : 0x37,
+		NumberSequence: 0x37,
+		NumberSequenceF16: 0x4B,
+		NumberSequenceF24: 0x4C,
+		NumberSequenceF64: 0x4D,
 
-	Array : 0x38,
-	Struct : 0x39,
-	
-	Instance : 0x4A,
-}) as Record<BitstreamTypesName,number>
+		Array: 0x38,
+		Struct: 0x39,
 
-export function fromValue(n : number) : BitstreamTypesName {
-	assert(typeOf(n) === "number","A number must be provided.")
-	for(const [k,v] of pairs(BistreamEnumeration)) {
-		if(v === n) {
-			return k
-		}
+		Instance: 0x4E,
 	}
-	error("Could not find a valid BitstreamTypesName.")
+
+	// Given the specified number n, searches the list for the exact corresponding type (e.g., 1 → I8).
+	public static fromValue(n : number) : BitstreamTypesName {
+		assert(typeOf(n) === "number","First argument is expected to be a number.")
+		for(const [k,v] of pairs(this.BitstreamEnumeration)) {
+			if(v === n) return k
+		}
+		error("Could not find a valid BitstreamTypesName.")
+	}
+
 }

@@ -1,83 +1,70 @@
-/*
-	Bitstream Debugger + Version Control Module
-
-	Author : evxry_ll
-
-	This module provides:
-	- Centralized error message handling
-	- Runtime version verification against a remote source
-	- Lightweight configuration system
-	- Safe error retrieval API
-
-	The goal is to ensure:
-	- Consistent error formatting across Bitstream
-	- Optional GitHub-based version validation
-	- Reduced duplication of error strings
-*/
-
-import * as Services from "@rbxts/services"
+import { HttpService } from "@rbxts/services"
 import { version } from "./__version__"
-
-const HttpService = Services.HttpService
-
-const rawUrl = "https://raw.githubusercontent.com/evxryyy/Rbxenv/refs/heads/main/Bitstream/VERSION.md"
 
 type ErrorEnumeration = "Type-missmatch" | "Doesn't have enough space" | "Out of bounds"
 
-// Error message registry.
-const ErrorMessages : Record<ErrorEnumeration,string> = {
-    ["Type-missmatch"] : "Bitstream.%s: Type missmatch this require a %s type.",
-    ["Doesn't have enough space"] : "Bitstream.%s: Doesn't have enough space to write this type.",
-    ["Out of bounds"] : "Bitstream.%s: Buffer read out of bounds (offset=%d, type_size=%d, buffer_size=%d)"
-}
+interface IConfiguration { VerifyVersion : boolean }
 
 /*
-	Configuration system.
-	Allows for the modification of the module's behavior.
+* @Class: Debugger
+*
+* A simple utility class for debugging read/write operations. 
+* It can also be used to check the version of the Bitstream module.
 */
-const Configuration = {
-    VerifiyVersion : true,
-}
+export abstract class Debugger {
 
-/*
-	Version verification system.
-	Checks the version of the Bitstream module against a remote source.
-	Only runs if Configuration.VerifiyVersion is true.
-*/
-export function verifiyVersion() : void {
-    if(Configuration.VerifiyVersion === false) { return; }
-    if(rawUrl.size() === 0) { return; }
-    if(HttpService.HttpEnabled === false) {
-        warn("HttpService is not enabled, Bitstream version could not be evaluate.")
-        return;
-    }
-    const [success,res] = pcall(() => {
-        return HttpService.GetAsync(rawUrl)
-    })
-    if(success === false) {
-        warn(res)
-        return;
-    }
-    const bitstreamSourceVersion = string.match(res,"[%d%.]+")[0] as string
-    if(bitstreamSourceVersion !== version) {
-        warn(`Bitstream version missmatch, expected ${bitstreamSourceVersion} got ${version}. Please go to npm and install the lastest version.`)
-    }
-}
+    // raw link to public version of Bitstream (template link)
+    private static readonly rawURL = "https://raw.githubusercontent.com/evxryyy/Rbxenv/refs/heads/main/Bitstream/VERSION.md"
 
-/*
-	Error retrieval function.
-
-	@param errorType The type of error to retrieve.
-	@return The error message string.
-*/
-export function catchError(errorType : ErrorEnumeration) : string | undefined {
-    const targetError = ErrorMessages[errorType]
-    if(typeOf(targetError) !== "string") {
-        warn("Error not found")
+    // Contains all common errrors
+    public static readonly ErrorMessages : Record<ErrorEnumeration,string> = {
+        ["Type-missmatch"] : "Bitstream.%s: Type missmatch this require a %s type.",
+        ["Doesn't have enough space"] : "Bitstream.%s: Doesn't have enough space to write this type.",
+        ["Out of bounds"] : "Bitstream.%s: Buffer read out of bounds (offset=%d, type_size=%d, buffer_size=%d)"
     }
-    return targetError
-}
 
-export function getFunctionName(level? : number) {
-    return debug.info(level || 2,"n")
+    // Simple configuration table
+    public static Configuration : IConfiguration = {
+        VerifyVersion : true
+    }
+
+    /*
+    * Checks the current module version against the version available on GitHub. 
+    * If the versions do not match, the local version is considered outdated.
+    */
+    public static verifyVersion() {
+        if(!this.Configuration.VerifyVersion) return;
+        if(this.rawURL.size() <= 0) return;
+        if(!HttpService.HttpEnabled) {
+            warn("HttpService is not enabled, Bitstream version could not be evaluate.")
+            return;
+        }
+        const [success,res] = pcall(() => {
+            return HttpService.GetAsync(this.rawURL)
+        }) as LuaTuple<[boolean,string]>
+        if(!success) {
+            warn("Error detected during Debugger.verifyVersion() : " + res)
+            return;
+        }
+        const bitstreamSourceVersion = string.match(res,"[%d.]+")[0] as string
+        if(bitstreamSourceVersion !== version) {
+            warn(`Bitstream version missmatch, expected ${bitstreamSourceVersion} got ${version}. Please go to npm and install the lastest version.`)
+        }
+    }
+
+    // Takes the error type and returns the exact error message corresponding to that type.
+    public static catchError(errorType : ErrorEnumeration) : string | undefined {
+        const targetError = this.ErrorMessages[errorType]
+        if(!targetError) warn("Error not found");
+        return targetError
+    }
+
+    /* 
+    * Given the level argument, returns the name of the function at the specified stack level using Roblox's debug.info API.
+    * More information here : https://create.roblox.com/docs/reference/engine/libraries/debug#info
+    */
+    public static getFunctionName(level? : number) {
+        return debug.info(level | 2,"n")
+    }
+
 }

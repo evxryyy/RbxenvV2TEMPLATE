@@ -57,13 +57,13 @@ export abstract class Resolver {
     // A list of all possible errors that can occur when calling certain functions.
     private static readonly ERROR_LIST = {
         DEEPLY_NESTED_ARRAY : `
-        A deeply nested array was detected during iteration. Deeply nested arrays (e.g., "[ [ [ 10 ] ] ]" ) are not supported; 
+        A deeply nested array was detected during iteration. Deeply nested arrays (e.g., [ [ [ 10 ] ] ] ) are not supported; 
         only one level of nesting (e.g., [ [ 10 ] ] ) is supported.
         `,
         DEEPLY_NESTED_STRUCT : `
         A deeply nested struct was detected during iteration. 
-        Deeply nested structs (e.g., "[ Outer = [ Inner = [ Value = 10 ] ] ]") are not supported; 
-        only one level of nesting (e.g., "[ Inner = [ Value = 10 "] ]") is supported.
+        Deeply nested structs (e.g., [ Outer = [ Inner = [ Value = 10 ] ] ]) are not supported; 
+        only one level of nesting (e.g., [ Inner = [ Value = 10 ] ]) is supported.
         `,
         ITERATE_STRUCT_IN_ARRAY : `Cannot iterate a struct inside an array.`,
 

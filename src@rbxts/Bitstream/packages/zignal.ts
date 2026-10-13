@@ -1,9 +1,18 @@
+/*
+* The Zignal module was originally created by Z0SC. You can find the original repository on GitHub:
+* Zignal.luau: https://github.com/Z0SC/Zignal
+* 
+* SORRY IF THE PORT ISN'T PERFECT, BUT I DID MY BEST, SO PLEASE NO CRITICISM.
+*/ 
+
+// A type that represents the result returned by coroutine.yield, at least as accurately as possible for Zignal.
 type yieldResult = {
     func : (...args : unknown[]) => void;
     thread : thread;
     packedArgs : unknown[];
 }
 
+// A type representing the elements passed when creating a Zignal. Note: only consider the function itself.
 type connectionConstructorsArgs<A extends unknown & Array<unknown>> = {
     __func : (...args : A) => void,
     __next? : IConnection<A>,
@@ -35,6 +44,7 @@ function Yield() : void {
     }
 }
 
+// Simply export the interface of the Signal class.
 export interface ISignal<A extends unknown & Array<unknown>> {
     Fire(...args : A) : void;
     Wait() : A;
@@ -44,6 +54,7 @@ export interface ISignal<A extends unknown & Array<unknown>> {
     _next? : Connection<A>
 }
 
+// Simply export the interface of the Connection class.
 export interface IConnection<A extends unknown & Array<unknown>> {
     Connected : boolean;
     Disconnect() : void;
@@ -52,8 +63,21 @@ export interface IConnection<A extends unknown & Array<unknown>> {
     _previous? : IConnection<A>
 }
 
+/* 
+* `@Class: Signal`
+*
+* A class that allows you to create signals. Example:
+* ```ts
+* let signal = new Signal();
+* let typedSignal new Signal<[number,number]>();
+* ```
+*/
 export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
 
+    /*
+    * Sends the arguments to all connected listeners. If a connection is established,-
+    * the callback function is invoked with the arguments passed to Fire.
+    */
     public Fire(...args : A) {
         let link = this._next
         while(link) {
@@ -72,6 +96,9 @@ export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
         }
     }
 
+    /*
+    * Yields until Fire is called. Once Fire is called, Wait resumes and returns the arguments passed to Fire.
+    */
     public Wait() : A {
         let thread = coroutine.running()
         let connection : unknown = undefined
@@ -83,6 +110,10 @@ export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
         return (values as unknown[]) as A
     }
 
+    /*
+    * Establishes a one-time connection. 
+    * The callback function is invoked only once when Fire is called and will not be invoked on subsequent calls to Fire.
+    */
     public Once(func : (...args : A) => void) : Connection<A> {
        let connection : unknown
        connection = this.Connect((...args : A) => {
@@ -92,6 +123,11 @@ export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
        return connection as Connection<A>
     }
 
+
+    /* 
+    * Establishes a connection and returns a Connection<A> instance,-
+    * allowing Disconnect to be called at any time to terminate the connection.
+    */
     public Connect(func : (...args : A) => void) : Connection<A> {
         let _next_ = this._next
         let link = {
@@ -109,6 +145,7 @@ export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
         } as connectionConstructorsArgs<A>)
     }
 
+    // Disconnects all existing connections.
     public DisconnectAll(): void {
         let link = this._next
         while(link) {
@@ -118,17 +155,21 @@ export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
         this._next = undefined
     }
 
-    _next?: Connection<A> | undefined;
+    public _next?: Connection<A> | undefined;
 
 }
 
+/* 
+* @Class: Connection
+*
+* A class instantiated when Signal.Connect is called. 
+* Its main purpose is to disconnect the connection when Disconnect is called. 
+* The constructor is not particularly important to look at.
+*/
 class Connection<A extends Array<unknown>> implements IConnection<A> {
 
     public Connected: boolean = false;
 
-    /**
-     * 
-     */
     constructor(parameters : connectionConstructorsArgs<A>) {
         this._function = parameters.__func
         this._previous = parameters.__previous
@@ -143,8 +184,8 @@ class Connection<A extends Array<unknown>> implements IConnection<A> {
         (_previous_ as IConnection<A>)._next = _next_
     }
 
-    _next?: IConnection<A> | undefined;
-    _previous?: IConnection<A> | undefined;
-    _function?: ((...args: A) => void) | undefined;
+    public _next?: IConnection<A> | undefined;
+    public _previous?: IConnection<A> | undefined;
+    public _function?: ((...args: A) => void) | undefined;
 
 }

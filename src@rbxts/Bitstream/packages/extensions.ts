@@ -1,5 +1,5 @@
 import * as Types from "./typeHelper"
-import * as Enumeration from "./enumeration"
+import { Enumeration,BitstreamTypesName } from "./enumeration"
 
 // math lib
 const huge = math.huge; const floor = math.floor
@@ -159,10 +159,10 @@ export abstract class Extensions {
     *
     * @Returns : Enumeration.BitstreamTypesName
     */
-    public static searchEnumTypeIdentifier(typeIdentifier : number) : Enumeration.BitstreamTypesName {
-        for(const [name,value] of pairs(Enumeration.BistreamEnumeration)) {
+    public static searchEnumTypeIdentifier(typeIdentifier : number) : BitstreamTypesName {
+        for(const [name,value] of pairs(Enumeration.BitstreamEnumeration)) {
             if(value === typeIdentifier) {
-                return name as Enumeration.BitstreamTypesName
+                return name as BitstreamTypesName
             }
         }
         error("Type-identifier is not recognizable.")        
@@ -173,7 +173,7 @@ export abstract class Extensions {
     *
     * @Returns : string
     */
-    public static bitstreamTypesToLiteralTypes(typeName : Enumeration.BitstreamTypesName) : string {
+    public static bitstreamTypesToLiteralTypes(typeName : BitstreamTypesName) : string {
         if(typeName === "UDim" || typeName === "UDim2") { return typeName }
         // Enum
         if(typeName === "Enum") { return "EnumItem" }

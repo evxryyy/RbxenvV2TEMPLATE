@@ -2,11 +2,18 @@ import { EncodingService, HttpService, ReplicatedStorage } from "@rbxts/services
 
 import * as Types from "./packages/typeHelper"
 import { Utilities } from "./packages/utilities"
-import * as Enumeration from "./packages/enumeration"
+import { 
+    Enumeration, 
+    BitstreamTypes,
+    BitstreamTableType, 
+    BitstreamTypesName,
+    ArraySchema,
+    StructSchema
+} from "./packages/enumeration"
 import { Constants } from "./packages/constants"
 import { Signal } from "./packages/zignal"
 import { Extensions } from "./packages/extensions"
-import * as Debugger from "./packages/debugger"
+import { Debugger } from "./packages/debugger"
 import { Resolver } from "./packages/resolver"
 import { Bitflag } from "./packages/bitflag"
 
@@ -17,7 +24,7 @@ type SignalConnectionCallback = (newValue : number) => void
 // Version control (only once)
 let versionIsVerified = false
 if(versionIsVerified === false) {
-    task.spawn(Debugger.verifiyVersion)
+    task.spawn(() => Debugger.verifyVersion())
     versionIsVerified = true
 }
 
@@ -786,7 +793,7 @@ class Component {
         this.ensureWritable(Constants.REQUIRED_BYTES.PrefixedString(value))
         let length = value.size()
         let bytesData = Utilities.getEquivalentBytesInfoFromNumber(length)
-        this.writeU8(Enumeration.BistreamEnumeration[`U${bytesData.bytes * 8}` as keyof unknown])
+        this.writeU8(Enumeration.BitstreamEnumeration[`U${bytesData.bytes * 8}` as keyof unknown])
         this.writeUInt(length)
         this.writeString(value)
         return this
@@ -2335,21 +2342,21 @@ class Component {
     * @lastest modification : v4.0
     * @since v2.8
     */
-    public writeAs(writeType : Enumeration.BitstreamTypes,value : unknown) {
+    public writeAs(writeType : BitstreamTypes,value : unknown) {
         assert(typeOf(writeType) !== "nil","A specific type is required.")
         assert(typeOf(value) !== "nil","A value is required.")
         if(typeOf(writeType) === "table") {
             // Formatted `writeType` to an actual TableType
-            let formatted = (writeType as Enumeration.BitstreamTableType)
+            let formatted = (writeType as BitstreamTableType)
             let typeName = formatted.Type
             if(typeName === "Array") {
                 Resolver.iterateArray(formatted.Types,(value as [defined]),(t,v) => {
-                    this.writeAs(t as Enumeration.BitstreamTypes,v as defined)
+                    this.writeAs(t as BitstreamTypes,v as defined)
                 })
             }
             else if(typeName === "Struct") {
-                Resolver.iterateStruct(formatted as Enumeration.StructSchema,(value as Record<string,unknown>),(t,v) => {
-                    this.writeAs(t as Enumeration.BitstreamTypes,v as defined)
+                Resolver.iterateStruct(formatted as StructSchema,(value as Record<string,unknown>),(t,v) => {
+                    this.writeAs(t as BitstreamTypes,v as defined)
                 })
             }
             else {
@@ -2362,9 +2369,9 @@ class Component {
             return this
         }
         // Fallback to literal string types (i.e. "I8" etc...)
-        let rbxType = Extensions.bitstreamTypesToLiteralTypes(writeType as Enumeration.BitstreamTypesName)
+        let rbxType = Extensions.bitstreamTypesToLiteralTypes(writeType as BitstreamTypesName)
         assert(typeOf(value) === rbxType,`Type-missmatch: expected to be a ${typeOf(rbxType)} but got : ${typeOf(value)}`);
-        return (this[`write${writeType as Enumeration.BitstreamTypesName}` as keyof unknown] as WriterIndexCallback)(value)
+        return (this[`write${writeType as BitstreamTypesName}` as keyof unknown] as WriterIndexCallback)(value)
     }
 
     /*
@@ -2380,11 +2387,11 @@ class Component {
     * @lastest modification : v4.0
     * @since v2.8
     */
-    public writeArray<T>(types : [Enumeration.BitstreamTypes],values : [T]) {
+    public writeArray<T>(types : [BitstreamTypes],values : [T]) {
         assert(typeOf(types) === "table","First argument is expected to be a table containing types")
         assert(typeOf(values) === "table","Second argument is expected to be a array of values")
         Resolver.iterateArray(types,values,(t,v) => {
-            this.writeAs(t as Enumeration.BitstreamTypes,v)
+            this.writeAs(t as BitstreamTypes,v)
         })
         return this
     }
@@ -2419,7 +2426,7 @@ class Component {
             (this[`write${valueType as string}` as keyof unknown] as WriterIndexCallback)(value)
         }
         else {
-            this.writeAs(valueType as Enumeration.BitstreamTypes,value)
+            this.writeAs(valueType as BitstreamTypes,value)
         }
         return $tuple(this,valueType)
     }
@@ -2430,11 +2437,11 @@ class Component {
     * @latest modification : v4.0
     * @since v3.2
     */
-    public writeStruct(schema : Enumeration.StructSchema,struct : Record<string,defined>) {
+    public writeStruct(schema : StructSchema,struct : Record<string,defined>) {
         assert(typeOf(schema) === "table","First argument is expected to be a table corresponding to a StructSchema")
         assert(typeOf(struct) === "table","Second argument is expected to be a dictionary")
         Resolver.iterateStruct(schema,struct,(t,v) => {
-            this.writeAs(t as Enumeration.BitstreamTypes,v)
+            this.writeAs(t as BitstreamTypes,v)
         })
         return this
     }
@@ -4072,7 +4079,7 @@ class Component {
     * @latest modification : v4.0
     * @since v2.8
     */
-    public readAs<T extends Enumeration.BitstreamTypes | unknown[]>(
+    public readAs<T extends BitstreamTypes | unknown[]>(
         readType : T,
         offset? : number
     ) {
@@ -4094,7 +4101,7 @@ class Component {
     * @since v2.9
     */
     public readArray(
-        types : Enumeration.BitstreamTypes[],
+        types : BitstreamTypes[],
         offset? : number
     ) {
 
@@ -4115,7 +4122,7 @@ class Component {
     * @since v3.2
     */
     public readStruct(
-        schema : Enumeration.StructSchema,
+        schema : StructSchema,
         offset? : number
     ) {
 
