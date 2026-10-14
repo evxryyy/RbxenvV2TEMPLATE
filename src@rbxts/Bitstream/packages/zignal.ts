@@ -177,6 +177,10 @@ class Connection<A extends Array<unknown>> implements IConnection<A> {
         this.Connected = true
     }
 
+    /*
+    * Disconnect the current connection. 
+    * This same connection can be reassigned if you use Signal.Connect again later.
+    */
     public Disconnect(): void {
         if(this.Connected) this.Connected = false;
         let [_next_,_previous_] = [this._next,this._previous]

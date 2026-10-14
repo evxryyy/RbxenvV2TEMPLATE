@@ -82,34 +82,6 @@ export abstract class Resolver {
     private static readonly removeCountPattern = "([^:]+)"
 
     /*
-    * Check whether the current input (the array containing Bitstream types)
-    * includes any nested arrays. Return true if any are found; otherwise, return false.
-    */
-    private static containNestedArray(t : Enumeration.BitstreamTypes[]) {
-        t.forEach((elementType) => {
-            if(typeOf(elementType) === "table") {
-                let result = elementType as Enumeration.BitstreamTableType
-                let nestedFlag = result.Type === "Array" || result.Type === "Struct" ? true : false
-                if(nestedFlag) return nestedFlag
-            }
-        })
-        return false
-    }
-
-    /*
-    * Similar to containNestedArray, but checks only for structs.
-    */
-    private static containNestedStruct(struct : Record<string,defined>) {
-        for(const [_,field] of pairs(struct)) {
-            if(typeOf(field) === "table") {
-                let nestedFlag = (field as Enumeration.BitstreamTableType).Type === "Struct" ? true : false
-                if(nestedFlag) return nestedFlag
-            }
-        }
-        return false
-    }
-
-    /*
     * A function called by iterateArray for each element it processes. 
     * It checks whether the element contains a :count pattern, such as "U8:3". 
     * This also works with types such as { Type = "RotationCurveKey:2", Option = "Normal" }.
@@ -254,6 +226,34 @@ export abstract class Resolver {
     //#endregion
 
     //#region Public methods
+
+    /*
+    * Check whether the current input (the array containing Bitstream types)
+    * includes any nested arrays. Return true if any are found; otherwise, return false.
+    */
+    public static containNestedArray(t : Enumeration.BitstreamTypes[]) {
+        t.forEach((elementType) => {
+            if(typeOf(elementType) === "table") {
+                let result = elementType as Enumeration.BitstreamTableType
+                let nestedFlag = result.Type === "Array" || result.Type === "Struct" ? true : false
+                if(nestedFlag) return nestedFlag
+            }
+        })
+        return false
+    }
+
+    /*
+    * Similar to containNestedArray, but checks only for structs.
+    */
+    public static containNestedStruct(struct : Record<string,defined>) {
+        for(const [_,field] of pairs(struct)) {
+            if(typeOf(field) === "table") {
+                let nestedFlag = (field as Enumeration.BitstreamTableType).Type === "Struct" ? true : false
+                if(nestedFlag) return nestedFlag
+            }
+        }
+        return false
+    }
 
     /*
     * Iterates through all elements in the arrayTypes argument and invokes the provided callback for each element. 
