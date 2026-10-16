@@ -1,17 +1,39 @@
 {
-  "name": "@rbxenv/bitstream",
-  "version": "4.0.0",
-  "description": "Binary framework for Rbxenv",
-  "main": "index.luau",
-  "types": "index.d.ts",
+  "name": "@rbxts/bitstream",
+  "version": "1.0.0",
+  "description": "",
+  "main": "out/init.lua",
+  "scripts": {
+    "build": "rbxtsc",
+    "watch": "rbxtsc -w",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "types": "out/index.d.ts",
   "files": [
-    "**/*"
+    "out",
+    "!**/*.tsbuildinfo"
   ],
-  "keywords": [
-    "roblox",
-    "roblox-ts",
-    "luau"
-  ],
-  "author": "evxryyy",
-  "license": "MIT"
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@rbxts/compiler-types": "^3.0.0-types.0",
+    "@rbxts/types": "^1.0.958",
+    "@typescript-eslint/eslint-plugin": "^8.71.2",
+    "@typescript-eslint/parser": "^8.71.2",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.7",
+    "eslint-plugin-roblox-ts": "^1.4.1",
+    "prettier": "^3.9.10",
+    "roblox-ts": "^3.0.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@rbxts/services": "^1.6.0"
+  }
 }

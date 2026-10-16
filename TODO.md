@@ -13,7 +13,7 @@
 
 ----
 
-## Rbxts Version 
+## Rbxts Version
 - Test new `Bitflag` & `Resolver`.
 - Make any ported luau code to @rbxts very different and looks real modern ts and not some copy and paste code.
 - Same as Luau more generic functions
