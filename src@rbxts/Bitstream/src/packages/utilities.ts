@@ -62,6 +62,14 @@ export abstract class Utilities {
         return values.every((_,i) => typeOf(i) === "number")
     }
 
+    public static isStruct(value : Record<string,unknown>) {
+        assert(typeOf(value) === "table", "value must be a table");
+        for(const [k,_] of pairs(value)) {
+            if(typeOf(k) === "string") return true
+        }
+        return false
+    }
+
     /*
     * Check whether the buffer has enough capacity to write this type. 
     * The function calculates the offset plus the type's payload size and, if the last argument is set to true, 

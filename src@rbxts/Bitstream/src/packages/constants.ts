@@ -14,6 +14,88 @@ for (const enumType of Enum.GetEnums()) {
 const EnumItemList: readonly EnumItem[] = mutableEnumItemList;
 const EnumItemIndex: ReadonlyMap<EnumItem, number> = mutableEnumItemIndex;
 
+function StringSize(str : string) : number { return str.size() }
+function PrefixedStringSize(str : string) : number {
+    const len = str.size();
+    const bytesData = Utilities.getEquivalentBytesInfoFromNumber(len)
+    /*
+	* calculation: 1 byte for the type identifier
+	* n bytes for the string length (U8, U16, U24, ..., U48)
+	* len bytes for the string data
+    * 
+    * schema:
+	*	(1 + n + len)
+    */
+    return 1 + bytesData.bytes + len
+}
+
+function RotationCurveKeySize(rot : RotationCurveKey,option : Types.RotationCurveKeyOption) {
+    if(option === "Normal"){
+        return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 62 : 54
+    }
+    else if(option === "Quaternion") {
+        return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 42 : 34
+    }
+    else if(option === "CFrameF32") {
+        return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 38 : 30
+    }
+    else if(option === "CFrameF24") {
+        return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 32 : 24
+    }
+    else if(option === "Quantized") {
+        return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 26 : 18
+    }
+    error("Current option is invalid. Please see ./typeHelper")
+}
+
+function FloatCurveKeySize(key : FloatCurveKey,option : Types.FloatCurveKeyOption) {
+    if(option === "Normal") {
+        return (key.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 22 : 14
+    }
+    else if(option === "F32") {
+        return (key.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 18 : 10
+    }
+    else if(option === "F24") {
+        return (key.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 17 : 9
+    }
+    else if(option === "F16") {
+        return (key.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 16 : 8
+    }
+    error("Current option is invalid. Please see ./typeHelper")
+}
+
+function ColorSequenceSize(key : ColorSequence,option : Types.ColorSequenceOption) {
+    if(option === "Normal") {
+        return 1 + (7 * key.Keypoints.size())
+    }
+    else if(option === "F24") {
+        return 1 + (13 * key.Keypoints.size())               
+    }
+    else if(option === "F32") {
+        return 1 + (16 * key.Keypoints.size())               
+    }
+    else if(option === "F64") {
+        return 1 + (28 * key.Keypoints.size())               
+    }
+    error("Current option is invalid. Please see ./typeHelper")
+}
+
+function NumberSequenceSize(key : NumberSequence,option : Types.NumberSequenceOption) {
+    if(option === "Normal") {
+        return 1 + (12 * key.Keypoints.size())
+    }
+    else if(option === "F16") {
+        return 1 + (10 * key.Keypoints.size())
+    }
+    else if(option === "F24") {
+        return 1 + (11 * key.Keypoints.size())
+    }
+    else if(option === "F64") {
+        return 1 + (16 * key.Keypoints.size())
+    }
+    error("Current option is invalid. Please see ./typeHelper")
+}
+
 export const Constants = table.freeze({
 
     // INTEGER TYPES //
@@ -63,23 +145,8 @@ export const Constants = table.freeze({
         F32 : 4,
         F64 : 8,
         // Strings,
-        String(str : string) : number {
-            return str.size()
-        },
-        PrefixedString(str : string) : number {
-            const len = str.size();
-            const bytesData = Utilities.getEquivalentBytesInfoFromNumber(len)
-            /*
-		        calculation:
-					1 byte for the type identifier
-					n bytes for the string length (U8, U16, U24, ..., U48)
-					len bytes for the string data
-
-				schema:
-					(1 + n + len)
-            */
-            return 1 + bytesData.bytes + len
-        },
+        String : StringSize,
+        PrefixedString : PrefixedStringSize,
         // Bools
         Bool1 : 1,
         Bool8 : 1,
@@ -115,73 +182,14 @@ export const Constants = table.freeze({
         Region3CFrameF32 : 48, // (Vec3, CFrameF32)
         Region3Quantized : 36, // (Vec3, CFrameQuantized)
         Region3int16 : 12, // (Vec3int16, Vec3int16)
-        RotationCurveKey(rot : RotationCurveKey,option : Types.RotationCurveKeyOption) {
-            if(option === "Normal"){
-                return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 62 : 54
-            }
-            else if(option === "Quaternion") {
-                return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 42 : 34
-            }
-            else if(option === "CFrameF32") {
-                return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 38 : 30
-            }
-            else if(option === "CFrameF24") {
-                return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 32 : 24
-            }
-            else if(option === "Quantized") {
-                return (rot.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 26 : 18
-            }
-            error("Current option is invalid. Please see ./typeHelper")
-        },
-        FloatCurveKey(key : FloatCurveKey,option : Types.FloatCurveKeyOption) {
-            if(option === "Normal") {
-                return (key.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 22 : 14
-            }
-            else if(option === "F32") {
-                return (key.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 18 : 10
-            }
-            else if(option === "F24") {
-                return (key.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 17 : 9
-            }
-            else if(option === "F16") {
-                return (key.Interpolation === Enum.KeyInterpolationMode.Cubic) ? 16 : 8
-            }
-            error("Current option is invalid. Please see ./typeHelper")
-        },
-        ColorSequence(key : ColorSequence,option : Types.ColorSequenceOption) {
-            if(option === "Normal") {
-                return 1 + (7 * key.Keypoints.size())
-            }
-            else if(option === "F24") {
-                return 1 + (13 * key.Keypoints.size())               
-            }
-            else if(option === "F32") {
-                return 1 + (16 * key.Keypoints.size())               
-            }
-            else if(option === "F64") {
-                return 1 + (28 * key.Keypoints.size())               
-            }
-            error("Current option is invalid. Please see ./typeHelper")
-        },
+        RotationCurveKey : RotationCurveKeySize,
+        FloatCurveKey : FloatCurveKeySize,
+        ColorSequence : ColorSequenceSize,
         NumberRange : 8,
         NumberRangeF16 : 4,
         NumberRangeF24 : 6,
         NumberRangeF64 : 16,
-        NumberSequence(key : NumberSequence,option : Types.NumberSequenceOption) {
-            if(option === "Normal") {
-                return 1 + (12 * key.Keypoints.size())
-            }
-            else if(option === "F16") {
-                return 1 + (10 * key.Keypoints.size())
-            }
-            else if(option === "F24") {
-                return 1 + (11 * key.Keypoints.size())
-            }
-            else if(option === "F64") {
-                return 1 + (16 * key.Keypoints.size())
-            }
-            error("Current option is invalid. Please see ./typeHelper")
-        },
+        NumberSequence : NumberSequenceSize,
     },
 
     // [number] = EnumItem, table identifiers to avoid 2 extra bytes while writing Enums

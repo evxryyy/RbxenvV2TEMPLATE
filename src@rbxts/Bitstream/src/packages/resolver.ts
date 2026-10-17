@@ -69,11 +69,24 @@ export abstract class Resolver {
 
     }
 
-    // A simple regex that removes the trailing type suffix (F24, F32, etc.).
-    private static readonly getTechinalPartRegex = "/(CFrameF64|CFrameF32|F32|F64)$/"
+    private static readonly _validPrefixPartRegex = ["RotationCurveKey","ColorSequence","FloatCurveKey","NumberSequence"]
 
-    // Same as the other one but remove the prefix (ColorSequenceF24 -> F24).
-    private static readonly getPrefixPartRegex = "^(NumberSequence|FloatCurveKey|RotationCurveKey|ColorSequence)"
+    private static getPrefixPartRegex(valueType : Enumeration.BitstreamTypesName) : string | undefined {
+        let result : string | undefined;
+        for(const prefix of this._validPrefixPartRegex) {
+            result = strmatch(valueType,`^(${prefix})`)[0] as string
+            if(result) break;
+        }
+        return result
+    }
+
+    private static getTechinalPartRegex(valueType : Enumeration.BitstreamTypesName) : string | undefined {
+        for (const prefix of this._validPrefixPartRegex) {
+            const result = strmatch(valueType, `^${prefix}(.+)`);
+            if (result[0]) return result[0] as string;
+        }
+        return undefined
+    }
 
     // Extract the <count> pattern ex : ColorSequence:3 -> 3
     private static readonly extractCountPattern = ":(%d+)"
@@ -180,8 +193,7 @@ export abstract class Resolver {
                 this.resolveArrayTypes(tableType.Types,result,callback)
                 return;
             case "Struct":
-                const tableFields = (tableType.Fields as unknown) as Enumeration.StructSchema
-                return this.resolveStruct(tableFields,callback);
+                return this.resolveStruct(tableType as Enumeration.StructSchema,callback);
             default:
                 const element = callback(fieldType)
                 return element
@@ -210,12 +222,12 @@ export abstract class Resolver {
             case "Struct":
                 error(this.ERROR_LIST.ITERATE_STRUCT_IN_ARRAY)
             default:
-                if(valueType.match(this.getPrefixPartRegex)[0]) {
-                    let originalName = valueType.match(this.getPrefixPartRegex)[0] as string
-                    let option = valueType.match(this.getTechinalPartRegex)[0] as string
+                let tryGetPrefixPart = this.getPrefixPartRegex(valueType)
+                if(typeIs(tryGetPrefixPart,"string")) {
+                    let option = this.getTechinalPartRegex(valueType)
                     // Reverse: ColorSequenceF32 back to {Type : ColorSequence,Option : F32}
                     return {
-                        Type : originalName as Enumeration.BitstreamTypesName,
+                        Type : tryGetPrefixPart as Enumeration.BitstreamTypesName,
                         Option : option
                     } as Enumeration.BitstreamTypes
                 }
@@ -300,6 +312,7 @@ export abstract class Resolver {
                         callback
                     )
                 }
+                else callback(value as T,values[key] as A)
             }
             else callback(value as T,values[key] as A)
         }
@@ -337,9 +350,9 @@ export abstract class Resolver {
             }
             // Simples types or type with count that came from an array (i.e U8:3)
             else {
-                let elementTypeOf = strmatch(typeInfo as string,this.extractCountPattern)[0]
-                let typeHasCount = tonumber(strmatch(typeInfo as string,this.removeCountPattern)[0])
-                callback(elementTypeOf as T,typeHasCount)
+                let elementTypeOf = strmatch(typeInfo as string,this.removeCountPattern)[0]
+                let typeHasCount = tonumber(strmatch(typeInfo as string,this.extractCountPattern)[0])
+                callback(elementTypeOf as T,typeHasCount,isNested)
             }
         }
     }
@@ -377,7 +390,7 @@ export abstract class Resolver {
             bytes += expressionIndex(value,extra)
         }
         else {
-            let elementIndex = Constants.REQUIRED_BYTES[_TEMPtypeInfo.Type as keyof defined] as unknown
+            let elementIndex = Constants.REQUIRED_BYTES[typeInfo as keyof defined] as unknown
             if(typeIs(elementIndex,"function")) {
                 bytes += elementIndex(value)
             }
@@ -410,12 +423,13 @@ export abstract class Resolver {
             case "boolean":
                 return "Bool1";
             case "table":
-                if(Utilities.isBool8(value as boolean[])) return "Bool8"
+                if(Utilities.isStruct(value as Record<string,defined>)) return "Struct"
+                else if(Utilities.isBool8(value as boolean[])) return "Bool8"
                 else if(Utilities.isArray(value as unknown[])) return "Array"
-                return "Struct"
+                break;
             default:
                 let enumerationName = "" 
-                let mappedTypes = this.MAPPED_RBX_TYPES[value as keyof defined]
+                let mappedTypes = this.MAPPED_RBX_TYPES[valueType as keyof defined]
                 if(typeOf(mappedTypes) === "string") {
                     enumerationName = mappedTypes as string
                 }
