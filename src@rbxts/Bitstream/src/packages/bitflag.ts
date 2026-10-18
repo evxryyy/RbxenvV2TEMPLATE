@@ -69,77 +69,6 @@ const readu8 = buffer.readu8; const readstring = buffer.readstring;
 */
 export abstract class Bitflag {
 
-    //#region Private
-
-    private static readonly IDS_TYPES = ReverseEnumerationIndex()
-    private static readonly DEFAULT_SIZE = 256
-    private static readonly VALUE_MARKER = ReverseMarkerIndex()
-
-    /*
-    * Writes the struct element (key) and its flag (type) to the buffer. 
-    * If a nested struct is detected, it writes a SUB_STRUCT_START&END marker.
-    */
-    private static writeStructField(param : WriteStructFieldParameters,key : string,value : unknown) {
-        let fieldType = Resolver.resolveValueType(value)
-        switch(fieldType) {
-            case "Struct":
-                if(Resolver.containNestedStruct(value as Record<string,unknown>)) {
-                    error("Writing : [ Outer = [ Inner = [ Value = 10 ] ] ], is not supported.")
-                }
-                this.writeMarker(param.markerBuffer,this.MARKER_VALUE.SUB_STRUCT_START)
-                this.writeString(param.fieldBuffer,key)
-                for(const [k,v] of pairs(value as Record<string,unknown>)) {
-                    this.writeStructField(param,k,v)
-                }
-                this.writeMarker(param.markerBuffer,this.MARKER_VALUE.SUB_STRUCT_END)
-                break;
-            default:
-                this.writeFlag(
-                    param.markerBuffer,
-                    fieldType,
-                    (fieldType === "String") ? (value as string).size() : undefined
-                )
-                this.writeString(param.fieldBuffer,key)
-                break;
-        }
-    }
-    
-    // Writes a string to the buffer along with its length as a u8 (max. 255 characters).
-    private static writeString(source : BitflagType,str : string) {
-        source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,str.size() + 1,true)
-        writeu8(source.buffer,source.offset,str.size())
-        writestring(source.buffer,source.offset + 1,str,str.size())
-        source.offset += str.size() + 1
-    } 
-
-    // Reads all possible markers in the struct, including types, then returns the schema and the updated offset.
-    private static readMarkersInStruct(
-        param : ReadStructParameters
-    ) : LuaTuple<[ValidMarkerName[] | BitstreamTypesName[],number]> {
-        let schema : ValidMarkerName[] | BitstreamTypesName[] = []
-        let offset = param.sourceOffset || 0
-        this.readMarker(param.sourceBuffer,offset)
-        offset++;
-        while(true) {
-            const id = readu8(param.sourceBuffer.buffer,offset)
-            if(id === this.MARKER_VALUE.STRUCT_END) {
-                offset++;
-                break;
-            }
-            let target : ValidMarkerName | BitstreamTypesName = this.IDS_TYPES[id] || this.VALUE_MARKER[id]
-            if(id === Enumeration.BitstreamEnumeration.String) {
-                const len = readu8(param.sourceBuffer.buffer,offset + 1)
-                offset++;
-                target = target + ":" + len
-            }
-            schema[schema.size()] = target
-            offset++;
-        }
-        return $tuple(schema,offset)
-    }
-
-    //#endregion
-
     //#region Public
 
     // Contains all possible markers when writing a struct.
@@ -257,7 +186,7 @@ export abstract class Bitflag {
         offset = updatedOffset
         let formatted : Record<string,defined> = {}
         let index = 0
-        while(index <= schema.size()) {
+        while(index < schema.size()) {
             const valueType = schema[index]
             switch(valueType) {
                 case "SUB_STRUCT_START":
@@ -283,6 +212,77 @@ export abstract class Bitflag {
             }
         }
         return $tuple(formatted,buffer.len(param.sourceBuffer.buffer))
+    }
+
+    //#endregion
+
+    //#region Private
+
+    private static readonly IDS_TYPES = ReverseEnumerationIndex()
+    private static readonly DEFAULT_SIZE = 256
+    private static readonly VALUE_MARKER = ReverseMarkerIndex()
+
+    /*
+    * Writes the struct element (key) and its flag (type) to the buffer. 
+    * If a nested struct is detected, it writes a SUB_STRUCT_START&END marker.
+    */
+    private static writeStructField(param : WriteStructFieldParameters,key : string,value : unknown) {
+        let fieldType = Resolver.resolveValueType(value)
+        switch(fieldType) {
+            case "Struct":
+                if(Resolver.containNestedStruct(value as Record<string,unknown>)) {
+                    error("Writing : [ Outer = [ Inner = [ Value = 10 ] ] ], is not supported.")
+                }
+                this.writeMarker(param.markerBuffer,this.MARKER_VALUE.SUB_STRUCT_START)
+                this.writeString(param.fieldBuffer,key)
+                for(const [k,v] of pairs(value as Record<string,unknown>)) {
+                    this.writeStructField(param,k,v)
+                }
+                this.writeMarker(param.markerBuffer,this.MARKER_VALUE.SUB_STRUCT_END)
+                break;
+            default:
+                this.writeFlag(
+                    param.markerBuffer,
+                    fieldType,
+                    (fieldType === "String") ? (value as string).size() : undefined
+                )
+                this.writeString(param.fieldBuffer,key)
+                break;
+        }
+    }
+    
+    // Writes a string to the buffer along with its length as a u8 (max. 255 characters).
+    private static writeString(source : BitflagType,str : string) {
+        source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,str.size() + 1,true)
+        writeu8(source.buffer,source.offset,str.size())
+        writestring(source.buffer,source.offset + 1,str,str.size())
+        source.offset += str.size() + 1
+    } 
+
+    // Reads all possible markers in the struct, including types, then returns the schema and the updated offset.
+    private static readMarkersInStruct(
+        param : ReadStructParameters
+    ) : LuaTuple<[ValidMarkerName[] | BitstreamTypesName[],number]> {
+        let schema : ValidMarkerName[] | BitstreamTypesName[] = []
+        let offset = param.sourceOffset || 0
+        this.readMarker(param.sourceBuffer,offset)
+        offset++;
+        while(true) {
+            const id = readu8(param.sourceBuffer.buffer,offset)
+            if(id === this.MARKER_VALUE.STRUCT_END) {
+                offset++;
+                break;
+            }
+            let target : ValidMarkerName | BitstreamTypesName = this.IDS_TYPES[id] || this.VALUE_MARKER[id]
+            if(id === Enumeration.BitstreamEnumeration.String) {
+                const len = readu8(param.sourceBuffer.buffer,offset + 1)
+                offset++;
+                target = target + ":" + len
+            }
+            schema[schema.size()] = target
+            offset++;
+        }
+        return $tuple(schema,offset)
     }
 
     //#endregion

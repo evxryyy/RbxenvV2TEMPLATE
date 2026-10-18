@@ -244,13 +244,13 @@ export abstract class Resolver {
     * includes any nested arrays. Return true if any are found; otherwise, return false.
     */
     public static containNestedArray(t : Enumeration.BitstreamTypes[]) {
-        t.forEach((elementType) => {
+        for(const elementType of t) {
             if(typeOf(elementType) === "table") {
-                let result = elementType as Enumeration.BitstreamTableType
+                let result = (elementType as Enumeration.BitstreamTableType)
                 let nestedFlag = result.Type === "Array" || result.Type === "Struct" ? true : false
-                if(nestedFlag) return nestedFlag
+                if(nestedFlag) return nestedFlag; 
             }
-        })
+        }
         return false
     }
 
