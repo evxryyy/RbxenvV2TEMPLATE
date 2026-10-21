@@ -95,61 +95,6 @@ export abstract class Resolver {
     private static readonly removeCountPattern = "([^:]+)"
 
     /*
-    * A function called by iterateArray for each element it processes. 
-    * It checks whether the element contains a :count pattern, such as "U8:3". 
-    * This also works with types such as { Type = "RotationCurveKey:2", Option = "Normal" }.
-    * 
-    * If a nested array is detected, the function recursively calls iterateArray. It returns void.
-    * 
-    * Both callback parameters must be configured correctly:
-    * - originalCallback must be the same callback passed to iterateArray.
-    * - indexCallback must increment the index for the next iteration, following the same logic used in iterateArray.
-    */
-    private static iterateElement<T extends Enumeration.BitstreamTypes,A>(
-        elementType : T,
-        element : A,
-        orignalCallback : IterationCallback<T,A>,
-        indexCallback : (valueType : T) => void
-    ) : void {
-        switch(typeOf(elementType)) {
-            case "table":
-                let _TEMPelementType = elementType as Enumeration.BitstreamTableType
-                if(_TEMPelementType.Type === "Array") {
-                    if(this.containNestedArray(_TEMPelementType.Types)) {
-                        error(this.ERROR_LIST.DEEPLY_NESTED_ARRAY)
-                    }
-                    this.iterateArray(_TEMPelementType.Types,element as A[],orignalCallback)
-                }
-                else if(_TEMPelementType.Type === "Struct") {
-                    error(this.ERROR_LIST.ITERATE_STRUCT_IN_ARRAY)
-                }
-                else {
-                    let typeHasCount = tonumber(strmatch(_TEMPelementType.Type as string,this.extractCountPattern)[0])
-                    let cloneTypedInfo = tblclone(_TEMPelementType)
-                    cloneTypedInfo.Type = strmatch(cloneTypedInfo.Type,this.removeCountPattern)[0] as Enumeration.BitstreamTypesName
-                    if(typeHasCount) {
-                        for(let i = 1; i <= typeHasCount; i++) {
-                            indexCallback((cloneTypedInfo as unknown) as T)
-                        }
-                    }
-                    else { indexCallback((cloneTypedInfo as unknown) as T) }
-                }
-                break;
-            default:
-                let typeHasCount = tonumber(strmatch(elementType as string,this.extractCountPattern)[0])
-                if(typeHasCount) {
-                    let elementTypeOf = strmatch(elementType as string,this.removeCountPattern)[0]
-                    for(let i = 1; i <= typeHasCount; i++) {
-                        indexCallback(elementTypeOf as T)
-                    }
-                }
-                else indexCallback(elementType)
-                break;
-        }
-    }
-
-
-    /*
     * Iterate through each element of the array and include it in the source provided as the second argument. 
     * This function is used by resolveField, which is called directly by resolveStruct. 
     * Note that this function returns void.
@@ -161,12 +106,21 @@ export abstract class Resolver {
     ) {
         let nestedArray : defined[] = []
         this.resolveArray(arrayTypes,(targetType,count,hasNestedFlag) => {
-            for(let i = 1; i < count; i++) {
+            if(count) {
+                for(let i = 1; i < count; i++) {
+                    let element = callback(targetType)
+                    if(hasNestedFlag) {
+                        nestedArray.insert(nestedArray.size(),element)
+                    }
+                    else tblinsert(source,element)
+                }
+            }
+            else {
                 let element = callback(targetType)
                 if(hasNestedFlag) {
                     nestedArray.insert(nestedArray.size(),element)
                 }
-                else tblinsert(source,element)
+                else tblinsert(source,element)                
             }
             if(hasNestedFlag) tblinsert(source,tblclone(nestedArray));
             tblclear(nestedArray)
@@ -191,7 +145,7 @@ export abstract class Resolver {
             case "Array":
                 const result : defined[] = []
                 this.resolveArrayTypes(tableType.Types,result,callback)
-                return;
+                return result;
             case "Struct":
                 return this.resolveStruct(tableType as Enumeration.StructSchema,callback);
             default:
@@ -273,18 +227,11 @@ export abstract class Resolver {
     * `(valueType: BitstreamTypes, value: A) => {...}`
     */
     public static iterateArray<T extends Enumeration.BitstreamTypes,A>(
-        arrayTypes : Enumeration.BitstreamTypes[],
+        arrayType : Enumeration.BitstreamTypes[],
         array : A[],
         callback : IterationCallback<T,A>
     ) {
-        let array_index = 0
-        for(let i = 0; i < arrayTypes.size(); i++) {
-            let elementType = arrayTypes[i] as T
-            this.iterateElement(elementType,array[array_index],callback,(valueType) => {
-                callback(valueType,array[array_index])
-                array_index++;
-            })
-        }
+
     }
 
     /*

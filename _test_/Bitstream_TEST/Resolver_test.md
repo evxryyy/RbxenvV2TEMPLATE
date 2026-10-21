@@ -14,7 +14,7 @@ To be clear, this function is generally unreliable when used directly. In `itera
 
 ---
 
-### `iterateArray`
+### `iterateArray` (Fixed the bug, patch will be available soon.)
 
 To be honest, I'm not satisfied with how this function was implemented. It works, but once a `nested array` is detected, the logic becomes a complete mess.
 
@@ -34,7 +34,7 @@ Works perfectly, including with `nested arrays`. The `:<count>` pattern also wor
 
 ---
 
-### `resolveStruct`
+### `resolveStruct` [Should be fixed, Test tomorrow]
 
 The function itself works, but several bugs were discovered over the weekend during in-depth testing. These will be fixed tomorrow.
 
