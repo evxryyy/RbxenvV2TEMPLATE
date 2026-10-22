@@ -107,7 +107,7 @@ export abstract class Resolver {
         let nestedArray : defined[] = []
         this.resolveArray(arrayTypes,(targetType,count,hasNestedFlag) => {
             if(count) {
-                for(let i = 1; i < count; i++) {
+                for(let i = 0; i < count; i++) {
                     let element = callback(targetType)
                     if(hasNestedFlag) {
                         nestedArray.insert(nestedArray.size(),element)
@@ -125,6 +125,62 @@ export abstract class Resolver {
             if(hasNestedFlag) tblinsert(source,tblclone(nestedArray));
             tblclear(nestedArray)
         })
+    }
+
+    private static catchCountPattern(elementType : Enumeration.BitstreamTypes) : LuaTuple<[Enumeration.BitstreamTypes,number?]> {
+        let typeHasCount = tonumber(strmatch(elementType as string,this.extractCountPattern)[0])
+        if(typeHasCount) {
+            let formatted = strmatch(elementType as string,this.removeCountPattern)[0] as Enumeration.BitstreamTypes
+            return $tuple(formatted,typeHasCount);
+        }
+        return $tuple(elementType)
+    }
+
+    private static iterateNestedArray<A extends defined | defined[]>(
+        elementType : Enumeration.ArraySchema,
+        element : A,
+        callback : IterationCallback<Enumeration.BitstreamTypes,A>
+    ) {
+        let index = 0
+        let typeIndex = 0
+        while(typeIndex < (elementType.Types).size()) {
+            const subElementType = elementType.Types[typeIndex]
+            let subElement = (element as A[])[index]
+            const [elementTypeName,hasCountPattern] = this.catchCountPattern(subElementType)
+            if(hasCountPattern) {
+                for(let i = 0; i < hasCountPattern; i++) {
+                    callback(elementTypeName,subElement)
+                    index++;
+                    subElement = (element as A[])[index]
+                }
+                typeIndex++;
+            }
+            else {
+                callback(elementTypeName,subElement)
+                index++;
+                typeIndex++;                
+            }
+        }
+    }
+
+    private static catchElement<A extends defined | defined[]>(
+        elementType : Enumeration.BitstreamTypes,
+        element : A,
+        callback : IterationCallback<Enumeration.BitstreamTypes,A | A[]>
+    ) {
+        switch(typeOf(element)) {
+            case "table":
+                let _tempElementType = elementType as Enumeration.BitstreamTableType
+                if(_tempElementType.Type === "Array") {
+                    if(this.containNestedArray(_tempElementType.Types)) { error(this.ERROR_LIST.DEEPLY_NESTED_ARRAY) }
+                    this.iterateNestedArray(_tempElementType as Enumeration.ArraySchema,element as A[],callback)
+                }
+                else if(_tempElementType.Type === "Struct") { error(this.ERROR_LIST.ITERATE_STRUCT_IN_ARRAY) }
+                break;
+            default:
+                callback(elementType,element)
+                break;
+        }
     }
 
     /*
@@ -226,12 +282,34 @@ export abstract class Resolver {
     * For example, the callback can have the following signature: 
     * `(valueType: BitstreamTypes, value: A) => {...}`
     */
-    public static iterateArray<T extends Enumeration.BitstreamTypes,A>(
+    public static iterateArray<A extends defined>(
         arrayType : Enumeration.BitstreamTypes[],
         array : A[],
-        callback : IterationCallback<T,A>
+        callback : IterationCallback<Enumeration.BitstreamTypes,A | A[]>
     ) {
+        let arrayIndex = 0
+        for(const elementType of arrayType) {
+            if(typeOf(elementType) === "string") {
+                const [elementTypeName,hasCountPattern] = this.catchCountPattern(elementType)
+                if(hasCountPattern) {
+                    let subArrayIndex = 0;
+                    for(let i = 0; i < hasCountPattern; i++) {
+                        callback(elementTypeName,((array[arrayIndex] as unknown) as A[])[subArrayIndex])
+                        subArrayIndex++;
+                    }
+                    arrayIndex++;
+                }
+                else { 
+                    callback(elementType,array[arrayIndex])
+                    arrayIndex++;
+                }                
+            }
+            else {
+                this.catchElement(elementType,array[arrayIndex],callback)
+                arrayIndex++;
+            }
 
+        }
     }
 
     /*
@@ -239,17 +317,17 @@ export abstract class Resolver {
     * The callback can have the following signature:
     * `(valueType: BitstreamTypes, value: A | unknown) => {}`
     */
-    public static iterateStruct<T extends Enumeration.BitstreamTypes,A>(
+    public static iterateStruct<A extends defined>(
         struct : Enumeration.StructSchema,
         values : Record<string,unknown>,
-        callback : IterationCallback<T,A>
+        callback : IterationCallback<Enumeration.BitstreamTypes,A | A[]>
     ) {
         for(const [key,value] of pairs(struct.Fields)) {
             if(values[key] === undefined) continue;
             if(typeOf(value) === "table") {
                 let _TEMPValue = value as Enumeration.BitstreamTableType
                 if(_TEMPValue.Type === "Array") {
-                    this.iterateArray(_TEMPValue.Types,values[key] as A[],callback)
+                    // Need to be re-evaluated.
                 }
                 else if(_TEMPValue.Type === "Struct") {
                     if(this.containNestedStruct(_TEMPValue.Fields)) continue
@@ -259,9 +337,9 @@ export abstract class Resolver {
                         callback
                     )
                 }
-                else callback(value as T,values[key] as A)
+                else callback(value,values[key] as A)
             }
-            else callback(value as T,values[key] as A)
+            else callback(value,values[key] as A)
         }
     }
 
