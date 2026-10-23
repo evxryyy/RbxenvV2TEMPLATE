@@ -13,6 +13,44 @@
 To be clear, this function is generally unreliable when used directly. In `iterateArray`, the function receives the inner array directly (i.e., `.Types`, not the original array). In this case, the result is `true`, which is correct.
 
 ---
+
+### `containNestedStruct`
+
+```ts
+{
+    Type : "Struct",
+    Fields : {
+        Data : {
+            Type : "Struct",
+            Fields : {...}
+        }
+    }
+}
+```
+
+Same as `containNestedArray` is not generally unreliable when used directly. In `iterateStruct` the function receives the inner struct directly (i.e.,`.Struct`, not the original array), In this case the result is also `true`, which is correct.
+
+Not allowed struct schema example :
+
+```ts
+{
+    Type : "Struct",
+    Fields : {
+        Data : {
+            Type : "Struct",
+            Fields : {
+                SubData : Type : "Struct",
+                Fields : {
+                    DeepSubData : "Bool1"
+                }
+            }
+        }
+    }
+}
+```
+
+
+---
  
 ### `iterateArray` [Patch deployed]
 
@@ -20,9 +58,9 @@ The function now works perfectly. I just need to update the documentation, and e
 
 ---
 
-### `iterateStruct` (Rework needed, when an array is detected.) 
+### `iterateStruct` [Path deployed]
 
-The function works, but a bug has been identified when an array is included in the schema. The iteration incorrectly handles the :<count> pattern because it depended on iterateArray. This will no longer be the case after the fix. The patch may take a little while.
+The function works correctly. I'm still using `iterateArray`, but i've found a better solution to the bug instead of creating separate functions.
 
 ---
 

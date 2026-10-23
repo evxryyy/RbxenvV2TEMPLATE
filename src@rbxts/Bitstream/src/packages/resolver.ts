@@ -293,11 +293,18 @@ export abstract class Resolver {
                 const [elementTypeName,hasCountPattern] = this.catchCountPattern(elementType)
                 if(hasCountPattern) {
                     let subArrayIndex = 0;
+                    let actualArrayIsNested = typeOf((array[arrayIndex])) === "table"
                     for(let i = 0; i < hasCountPattern; i++) {
-                        callback(elementTypeName,((array[arrayIndex] as unknown) as A[])[subArrayIndex])
-                        subArrayIndex++;
+                        if(actualArrayIsNested) {
+                            callback(elementTypeName,((array[arrayIndex] as unknown) as A[])[subArrayIndex])
+                            subArrayIndex++;
+                        }
+                        else {
+                            callback(elementTypeName,array[arrayIndex])
+                            arrayIndex++;
+                        }
                     }
-                    arrayIndex++;
+                    if(actualArrayIsNested) arrayIndex++;
                 }
                 else { 
                     callback(elementType,array[arrayIndex])
@@ -327,7 +334,7 @@ export abstract class Resolver {
             if(typeOf(value) === "table") {
                 let _TEMPValue = value as Enumeration.BitstreamTableType
                 if(_TEMPValue.Type === "Array") {
-                    // Need to be re-evaluated.
+                    this.iterateArray(_TEMPValue.Types,values[key] as A[],callback)
                 }
                 else if(_TEMPValue.Type === "Struct") {
                     if(this.containNestedStruct(_TEMPValue.Fields)) continue
