@@ -277,4 +277,188 @@ No bugs or issues were detected during the `iterateStruct` benchmarks.
 
 ---
 
-**TODO**
+## Results for `resolveArray`
+
+Schema used:
+
+```ts
+let arraySchema: ArraySchema = {
+    Type: "Array",
+    Types: [
+        { Type: "Array", Types: ["Bool1"] },
+        {
+            Type: "RotationCurveKey:2",
+            Option: "Quaternion"
+        },
+        "U8",
+    ]
+}
+```
+
+Results for `100K` iterations:
+
+```diff
++ Total Time: avg ~ 150ms
++ Operations/sec: 662489 ops/s
++ Time/Operation: 0.001509ms
+```
+
+Results for `10K` iterations:
+
+```diff
++ Total Time: avg ~ 16ms
++ Operations/sec: 590759 ops/s
++ Time/Operation: 0.001693ms
+```
+
+Excellent results for this function, and no bugs were detected.
+
+No benchmarks were performed using a simple schema. However, whether running `100K` or `10K` iterations, the total execution time rarely exceeds 20ms.
+
+---
+
+## Results for `resolveStruct`
+
+Schema used:
+
+```ts
+let structSchema: StructSchema = {
+    Type: "Struct",
+    Fields: {
+        DataSecondary: {
+            Type: "Struct",
+            Fields: {
+                SubData: "PrefixedString"
+            }
+        },
+        DataIds: {
+            Type: "Array",
+            Types: ["PrefixedString:3"]
+        },
+        NestedDataIds: {
+            Type: "Array",
+            Types: [
+                {
+                    Type: "Array",
+                    Types: [
+                        "F32:5"
+                    ]
+                }
+            ]
+        }
+    }
+}
+```
+
+Results for `100K` iterations:
+
+```diff
++ Total Time: avg ~ 353ms
++ Operations/sec: 282766 ops/s
++ Time/Operation: 0.003536ms
+```
+
+Results for `10K` iterations:
+
+```diff
++ Total Time: avg ~ 58ms
++ Operations/sec: 170969 ops/s
++ Time/Operation: 0.005849ms
+```
+
+Overall, the results are average when dealing with large schemas. A bug was discovered when using the `:<count>` pattern with a type such as `RotationCurveKey`. The pattern is not handled correctly, causing the type to be processed incorrectly. This bug will be fixed soon.
+
+---
+
+## Results for `resolveArraySchema`
+
+Input array used:
+
+```ts
+[
+    [true],
+    10, 15, 20,
+    "Hello World",
+    new CFrame(0, 0, 0)
+]
+```
+
+Results for `100K` iterations:
+
+```diff
++ Total Time: avg ~ 551ms
++ Operations/sec: 181268 ops/s
++ Time/Operation: 0.005517ms
+```
+
+Results for `10K` iterations:
+
+```diff
++ Total Time: avg ~ 121ms
++ Operations/sec: 82618 ops/s
++ Time/Operation: 0.012104ms
+```
+
+Good results for a schemaless function. Types such as `CFrame`, or other types with additional options, can be relatively expensive to process, but the overhead remains reasonable.
+
+---
+
+## Results for `resolveStructSchema`
+
+Input dictionary used:
+
+```ts
+{
+    DataSecondary: {
+        SubData: "Hello World"
+    },
+    DataIds: [10, 15, 20],
+}
+```
+
+Results for `100K` iterations:
+
+```diff
++ Total Time: avg ~ 475ms
++ Operations/sec: 210087 ops/s
++ Time/Operation: 0.004760ms
+```
+
+Results for `10K` iterations:
+
+```diff
++ Total Time: avg ~ 96ms
++ Operations/sec: 103098 ops/s
++ Time/Operation: 0.009699ms
+```
+
+No benchmarks were performed with nested arrays because a bug was discovered when attempting to use the following input:
+
+```ts
+{
+    DataSecondary: {
+        SubData: "Hello World"
+    },
+    DataIds: [10, 15, 20],
+    NestedDataIds: [
+        [0.1, 0.2, 0.3, 0.4, 0.5]
+    ]
+}
+```
+
+The nested array is incorrectly classified as a `deep nested array`. This is incorrect and will be fixed soon, hopefully tomorrow.
+
+Aside from this issue, the results are very good for schemaless functions.
+
+---
+
+## Other functions
+
+The following functions will not be benchmarked:
+
+- `resolveValueType`
+- `resolveBytesNeeded`
+- `containNestedArray`
+- `containNestedStruct`
+
+These functions execute very quickly, so I consider benchmarking them unnecessary. Demonstrating that each function takes less than approximately 15ms would not provide particularly useful insights.
