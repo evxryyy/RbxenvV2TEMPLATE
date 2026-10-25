@@ -366,7 +366,7 @@ Results for `10K` iterations:
 + Time/Operation: 0.005849ms
 ```
 
-Overall, the results are average when dealing with large schemas. A bug was discovered when using the `:<count>` pattern with a type such as `RotationCurveKey`. The pattern is not handled correctly, causing the type to be processed incorrectly. This bug will be fixed soon.
+Overall, the results are average when dealing with large schemas.
 
 ---
 
@@ -432,23 +432,7 @@ Results for `10K` iterations:
 + Time/Operation: 0.009699ms
 ```
 
-No benchmarks were performed with nested arrays because a bug was discovered when attempting to use the following input:
-
-```ts
-{
-    DataSecondary: {
-        SubData: "Hello World"
-    },
-    DataIds: [10, 15, 20],
-    NestedDataIds: [
-        [0.1, 0.2, 0.3, 0.4, 0.5]
-    ]
-}
-```
-
-The nested array is incorrectly classified as a `deep nested array`. This is incorrect and will be fixed soon, hopefully tomorrow.
-
-Aside from this issue, the results are very good for schemaless functions.
+Results are very good for schemaless functions.
 
 ---
 
