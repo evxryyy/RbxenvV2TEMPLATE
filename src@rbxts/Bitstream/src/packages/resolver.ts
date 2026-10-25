@@ -196,7 +196,7 @@ export abstract class Resolver {
             const element = callback(fieldType)
             return element
         }
-        const tableType = fieldType as Enumeration.BitstreamTableType
+        let tableType = fieldType as Enumeration.BitstreamTableType
         switch(tableType.Type) {
             case "Array":
                 const result : defined[] = []
@@ -205,7 +205,8 @@ export abstract class Resolver {
             case "Struct":
                 return this.resolveStruct(tableType as Enumeration.StructSchema,callback);
             default:
-                const element = callback(fieldType)
+                tableType.Type = strmatch(tableType.Type as string,this.removeCountPattern)[0] as Enumeration.BitstreamTypesName
+                const element = callback(tableType as Enumeration.BitstreamTypes)
                 return element
         }
     }
@@ -505,9 +506,6 @@ export abstract class Resolver {
             }
             else if(valueType === "Array") {
                 const subSchema = this.resolveArraySchema(value as unknown[])
-                if(this.containNestedArray(subSchema.Types)) {
-                   error(this.ERROR_LIST.DEEPLY_NESTED_ARRAY)
-                }
                 schema.Fields[key] = subSchema
                 continue
             }
