@@ -6,6 +6,6 @@
 
 I still need to make a few adjustments to `readMarker` and `readStruct` when capturing arrays. This may increase the payload size, but it's a necessary trade-off for proper pure schemaless serialization.
 
-## Benchmark
+## Benchmark (After the adjustement update, tomorrow hopefully)
 
 **TODO**
