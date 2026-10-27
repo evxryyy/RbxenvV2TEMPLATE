@@ -7,7 +7,9 @@ import { Utilities } from "./utilities"
 import { Resolver } from "./resolver"
 
 // Type containing the list of valid marker names when writing a struct.
-type ValidMarkerName = 
+type ValidMarkerName =
+    "ARRAY_START" |
+    "ARRAY_END" | 
     "STRUCT_START" |
     "STRUCT_END" |
     "SUB_STRUCT_START" |
@@ -73,6 +75,8 @@ export abstract class Bitflag {
 
     // Contains all possible markers when writing a struct.
     public static readonly MARKER_VALUE : Record<ValidMarkerName,number> = {
+        ARRAY_START: 0xF6,
+        ARRAY_END: 0xF7,
         STRUCT_START: 0xFA,
         STRUCT_END: 0xFB,
         SUB_STRUCT_START: 0xFC,
@@ -190,21 +194,47 @@ export abstract class Bitflag {
             const valueType = schema[index]
             switch(valueType) {
                 case "SUB_STRUCT_START":
-                    let structName = this.readString(param.sourceBuffer,offset)
+                    const structName = this.readString(param.sourceBuffer,offset)
                     offset += structName.size() + 1
-                    let struct : Record<string,defined> = {}
+                    const struct : Record<string,defined> = {}
                     index++;
                     while(index <= schema.size() && schema[index] !== "SUB_STRUCT_END") {
                         const field = this.readString(param.sourceBuffer,offset)
                         offset += field.size() + 1
-                        struct[field] = schema[index]
-                        index++;
+                        if(schema[index] === "ARRAY_START") {
+                            const array : ValidMarkerName[] | BitstreamTypesName[] = []
+                            index++;
+                            while(index <= schema.size() && schema[index] !== "ARRAY_END") {
+                                const element = schema[index]
+                                array[array.size()] = element
+                                index++
+                            }
+                            struct[field] = array
+                            index++;
+                        }
+                        else {
+                            struct[field] = schema[index]
+                            index++;
+                        }
                     }
                     formatted[structName] = struct
                     index++;
                     break;
+                case "ARRAY_START":
+                    const arrayName = this.readString(param.sourceBuffer,offset)
+                    offset += arrayName.size() + 1
+                    const array : ValidMarkerName[] | BitstreamTypesName[] = []
+                    index++;
+                    while(index <= schema.size() && schema[index] !== "ARRAY_END") {
+                        const element = schema[index]
+                        array[array.size()] = element
+                        index++;
+                    }
+                    formatted[arrayName] = array
+                    index++;
+                    break;
                 default:
-                    let field = this.readString(param.sourceBuffer,offset)
+                    const field = this.readString(param.sourceBuffer,offset)
                     offset += field.size() + 1
                     formatted[field] = schema[index]
                     index++;
@@ -239,6 +269,19 @@ export abstract class Bitflag {
                     this.writeStructField(param,k,v)
                 }
                 this.writeMarker(param.markerBuffer,this.MARKER_VALUE.SUB_STRUCT_END)
+                break;
+            case "Array":
+                this.writeMarker(param.markerBuffer,this.MARKER_VALUE.ARRAY_START)
+                this.writeString(param.fieldBuffer,key)
+                for(const [k,v] of pairs(value as object)) {
+                    let elementType = Resolver.resolveValueType(v)
+                    this.writeFlag(
+                        param.markerBuffer,
+                        elementType,
+                        (elementType === "String") ? (v as string).size() : undefined
+                    )
+                }
+                this.writeMarker(param.markerBuffer,this.MARKER_VALUE.ARRAY_END)
                 break;
             default:
                 this.writeFlag(
