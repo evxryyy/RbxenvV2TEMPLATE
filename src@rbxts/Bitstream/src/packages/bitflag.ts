@@ -38,6 +38,14 @@ type WriteStructFieldParameters = {
     fieldBuffer : BitflagType,
 }
 
+type IterateSubStruct = {
+    index : number,
+    offset : number,
+    readonly sourceBuffer : BitflagType,
+    readonly schema : ValidMarkerName[] | BitstreamTypesName[],
+    readonly struct : Record<string,defined>
+}
+
 // Function that swaps the order of the BitstreamEnumeration record, replacing BitstreamTypesName with numeric indices.
 function ReverseEnumerationIndex() : Record<number,BitstreamTypesName> {
     let t : Record<number,BitstreamTypesName> = {}
@@ -196,28 +204,17 @@ export abstract class Bitflag {
                 case "SUB_STRUCT_START":
                     const structName = this.readString(param.sourceBuffer,offset)
                     offset += structName.size() + 1
-                    const struct : Record<string,defined> = {}
                     index++;
-                    while(index <= schema.size() && schema[index] !== "SUB_STRUCT_END") {
-                        const field = this.readString(param.sourceBuffer,offset)
-                        offset += field.size() + 1
-                        if(schema[index] === "ARRAY_START") {
-                            const array : ValidMarkerName[] | BitstreamTypesName[] = []
-                            index++;
-                            while(index <= schema.size() && schema[index] !== "ARRAY_END") {
-                                const element = schema[index]
-                                array[array.size()] = element
-                                index++
-                            }
-                            struct[field] = array
-                            index++;
-                        }
-                        else {
-                            struct[field] = schema[index]
-                            index++;
-                        }
-                    }
-                    formatted[structName] = struct
+                    const result = this.readSubStruct({
+                        index: index,
+                        offset: offset,
+                        sourceBuffer: param.sourceBuffer,
+                        schema: schema,
+                        struct: {}
+                    })
+                    index = result.index
+                    offset = result.offset
+                    formatted[structName] = result.struct
                     index++;
                     break;
                 case "ARRAY_START":
@@ -326,6 +323,33 @@ export abstract class Bitflag {
             offset++;
         }
         return $tuple(schema,offset)
+    }
+
+    /*
+    * This function streamlines the reading of subStruct. 
+    * It reads the rest of the schema in order and assigns the types correctly. 
+    * It then returns the updated argument passed into the function, including the final offset, the final index, and the updated struct.
+    */
+    private static readSubStruct(param : IterateSubStruct) : IterateSubStruct {
+        while (param.index <= param.schema.size() && param.schema[param.index] !== "SUB_STRUCT_END") {
+            const field = this.readString(param.sourceBuffer, param.offset);
+            param.offset += field.size() + 1;
+            if (param.schema[param.index] === "ARRAY_START") {
+                const array: ValidMarkerName[] | BitstreamTypesName[] = [];
+                param.index++;
+                while (param.index <= param.schema.size() && param.schema[param.index] !== "ARRAY_END") {
+                    const element = param.schema[param.index];
+                    array[array.size()] = element;
+                    param.index++;
+                }
+                param.struct[field] = array;
+                param.index++;
+            } else {
+                param.struct[field] = param.schema[param.index];
+                param.index++;
+            }
+        }
+        return param
     }
 
     //#endregion
