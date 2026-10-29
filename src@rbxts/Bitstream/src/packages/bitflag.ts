@@ -172,13 +172,6 @@ export abstract class Bitflag {
         return readu8(source.buffer,offset)
     }
 
-    // Reads a string from the given offset, retrieving its length first.
-    public static readString(source : BitflagType,offset : number) : string {
-        Utilities.ensureReadable(source.buffer,offset,1)
-        const len = readu8(source.buffer,offset)
-        return readstring(source.buffer,offset + 1,len)
-    }
-
     // Reads a marker. For example, if 250 was written using writeMarker, this function returns STRUCT_START.
     public static readMarker(source : BitflagType,offset : number) : ValidMarkerName {
         Utilities.ensureReadable(source.buffer,offset,1)
@@ -298,6 +291,13 @@ export abstract class Bitflag {
         writestring(source.buffer,source.offset + 1,str,str.size())
         source.offset += str.size() + 1
     } 
+
+    // Reads a string from the given offset, retrieving its length first.
+    private static readString(source : BitflagType,offset : number) : string {
+        Utilities.ensureReadable(source.buffer,offset,1)
+        const len = readu8(source.buffer,offset)
+        return readstring(source.buffer,offset + 1,len)
+    }
 
     // Reads all possible markers in the struct, including types, then returns the schema and the updated offset.
     private static readMarkersInStruct(
