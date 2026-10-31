@@ -238,8 +238,8 @@ export abstract class Bitflag {
 
     //#region Private
 
-    private static readonly IDS_TYPES = ReverseEnumerationIndex()
     private static readonly DEFAULT_SIZE = 256
+    private static readonly IDS_TYPES = ReverseEnumerationIndex()
     private static readonly VALUE_MARKER = ReverseMarkerIndex()
 
     /*
@@ -350,6 +350,44 @@ export abstract class Bitflag {
             }
         }
         return param
+    }
+
+    private static getStructSize(struct : Record<string,unknown>) : LuaTuple<[number,number]> {
+        let markerBytes = 2 // STRUCT_START + STRUCT_END
+        let fieldsBytes = 0
+        for(const [key,value] of pairs(struct)) {
+            const [elementMarkersBytes,elementFieldsBytes] = this.getStructFieldSize(key,value)
+            markerBytes += elementMarkersBytes
+            fieldsBytes += elementFieldsBytes
+        }
+        return $tuple(markerBytes,fieldsBytes)
+    }
+
+    private static getStructFieldSize(key : string,value : unknown) : LuaTuple<[number,number]> {
+        let elementMarkersBytes = 0
+        let elementFieldsBytes = key.size()
+        const elementType = Resolver.resolveValueType(value)
+        switch(elementType) {
+            case "Struct":
+                elementMarkersBytes += 2 // SUB_STRUCT_START + SUB_STRUCT_END
+                for(const [k,v] of pairs(value as Record<string,unknown>)) {
+                    const [markerBytes,fieldsBytes] = this.getStructFieldSize(k,v)
+                    elementMarkersBytes += markerBytes
+                    elementFieldsBytes += fieldsBytes
+                }
+                break;
+            case "Array":
+                elementMarkersBytes += 2 // ARRAY_START + ARRAY_END
+                for(const [k,v] of pairs(value as object)) {
+                    const valueType = Resolver.resolveValueType(v)
+                    elementMarkersBytes += (1 + ((valueType === "String") ? 1 : 0))
+                }
+                break;
+            default:
+                elementMarkersBytes += (1 + ((elementType === "String") ? 1 : 0))
+                break;
+        }
+        return $tuple(elementMarkersBytes,elementFieldsBytes)
     }
 
     //#endregion
