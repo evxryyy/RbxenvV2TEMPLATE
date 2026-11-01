@@ -10,4 +10,4 @@ COMMANDS.md
 *.tgz
 *.tsbuildinfo
 *node_modules/
-Folder.DotSettings.user
+*Folder.DotSettings.user
