@@ -19,12 +19,15 @@ type ValidMarkerName =
 type BitflagType = {
     buffer : buffer,
     size : number,
-    offset : number,
+    offset : number
+    readonly useAutoAllocation : boolean
 }
 
 // Required argument when writing a struct
 type WriteStructParameters = {
-    structFields : Record<string,defined>
+    structFields : Record<string,defined>,
+    reqMarkerBytes? : number,
+    reqFieldBytes? : number,
 }
 
 // Required argument when reading a struct
@@ -98,14 +101,16 @@ export abstract class Bitflag {
     *   buffer: buffer;
     *   size: number;
     *   offset: number;
+    *   useAutoAllocation : boolean, (true by default)
     * }
     * ```
     */
-    public static initBufferFlag(size : number) : BitflagType {
+    public static initBufferFlag(size : number,enableAutoAllocation : boolean = true) : BitflagType {
         return {
             buffer : create(size),
             size : size,
-            offset : 0
+            offset : 0,
+            useAutoAllocation : enableAutoAllocation
         }
     }
 
@@ -120,12 +125,17 @@ export abstract class Bitflag {
     ) {
         switch(flag) {
             case "String":
-                source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,3,true)
+                if(source.useAutoAllocation) {
+                    source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,3,true)
+                }
                 writeu8(source.buffer,floor(source.offset),Enumeration.BitstreamEnumeration[flag])
                 writeu8(source.buffer,floor(source.offset + 1),args[0] as number)
                 source.offset += 2
                 break;
             default: 
+                if(source.useAutoAllocation) {
+                    source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,1,true)
+                }
                 source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,1,true)
                 writeu8(source.buffer,floor(source.offset),Enumeration.BitstreamEnumeration[flag])
                 source.offset++  
@@ -135,15 +145,24 @@ export abstract class Bitflag {
 
     // Writes the marker value, e.g., 250 → STRUCT_START on read.
     public static writeMarker(source : BitflagType,markerValue : number) {
-        source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,1,true)
+        if(source.useAutoAllocation) {
+            source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,1,true)
+        }
         writeu8(source.buffer,source.offset,markerValue)
         source.offset++
     }
 
     // Traverses the struct from start to finish, writing its keys, types, and markers whenever a nested struct is detected.
     public static writeStruct(param : WriteStructParameters) : BitflagType {
-        const markerBuffer = this.initBufferFlag(0)
-        const fieldBuffer = this.initBufferFlag(0)
+        let [markerBytes,fieldBytes] = [0,0]
+        let useAutoAllocation = true
+        if(param.reqMarkerBytes && param.reqFieldBytes) {
+            markerBytes = param.reqMarkerBytes;
+            fieldBytes = param.reqFieldBytes;
+            useAutoAllocation = false
+        }
+        const markerBuffer = this.initBufferFlag(markerBytes,useAutoAllocation)
+        const fieldBuffer = this.initBufferFlag(fieldBytes,useAutoAllocation)
         this.writeMarker(markerBuffer,this.MARKER_VALUE.STRUCT_START)
         for(const [key,value] of pairs(param.structFields)) {
             this.writeStructField({
@@ -160,6 +179,7 @@ export abstract class Bitflag {
             buffer : merged,
             size : buffer.len(merged),
             offset : buffer.len(merged),
+            useAutoAllocation : typeOf(param.reqFieldBytes) === "number" ? false : true
         };
     }
 
@@ -234,6 +254,22 @@ export abstract class Bitflag {
         return $tuple(formatted,buffer.len(param.sourceBuffer.buffer))
     }
 
+    /*
+    * Given the provided dictionary,-
+    * this function iterates through all its entries and calculates the number of bytes required for both the markers and the entries themselves. 
+    * It returns a tuple (reqMarkerBytes, reqFieldsBytes).
+    */
+    public static getStructSize(struct : Record<string,unknown>) : LuaTuple<[number,number]> {
+        let markerBytes = 2 // STRUCT_START + STRUCT_END
+        let fieldsBytes = 0
+        for(const [key,value] of pairs(struct)) {
+            const [elementMarkersBytes,elementFieldsBytes] = this.getStructFieldSize(key,value)
+            markerBytes += elementMarkersBytes
+            fieldsBytes += elementFieldsBytes
+        }
+        return $tuple(markerBytes,fieldsBytes)
+    }
+    
     //#endregion
 
     //#region Private
@@ -286,7 +322,9 @@ export abstract class Bitflag {
     
     // Writes a string to the buffer along with its length as a u8 (max. 255 characters).
     private static writeString(source : BitflagType,str : string) {
-        source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,str.size() + 1,true)
+        if(source.useAutoAllocation) {
+            source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,str.size() + 1,true)
+        }
         writeu8(source.buffer,source.offset,str.size())
         writestring(source.buffer,source.offset + 1,str,str.size())
         source.offset += str.size() + 1
@@ -352,20 +390,14 @@ export abstract class Bitflag {
         return param
     }
 
-    private static getStructSize(struct : Record<string,unknown>) : LuaTuple<[number,number]> {
-        let markerBytes = 2 // STRUCT_START + STRUCT_END
-        let fieldsBytes = 0
-        for(const [key,value] of pairs(struct)) {
-            const [elementMarkersBytes,elementFieldsBytes] = this.getStructFieldSize(key,value)
-            markerBytes += elementMarkersBytes
-            fieldsBytes += elementFieldsBytes
-        }
-        return $tuple(markerBytes,fieldsBytes)
-    }
-
+    /*
+    * Called directly from getStructSize on each iteration, 
+    * this function returns the number of bytes required for both the markers and the entries. 
+    * It returns a tuple (reqMarkerBytes, reqFieldsBytes).
+    */
     private static getStructFieldSize(key : string,value : unknown) : LuaTuple<[number,number]> {
         let elementMarkersBytes = 0
-        let elementFieldsBytes = key.size()
+        let elementFieldsBytes = key.size() + 1
         const elementType = Resolver.resolveValueType(value)
         switch(elementType) {
             case "Struct":
