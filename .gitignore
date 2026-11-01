@@ -11,3 +11,4 @@ COMMANDS.md
 *.tsbuildinfo
 *node_modules/
 *.DotSettings.user
+Folder.DotSettings.user
