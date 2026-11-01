@@ -12,3 +12,4 @@ COMMANDS.md
 *node_modules/
 *.DotSettings.user
 Folder.DotSettings.user
+.idea
