@@ -18,7 +18,7 @@ import { Resolver } from "./packages/resolver"
 import { Bitflag } from "./packages/bitflag"
 
 type WriterIndexCallback = (this : Component,value : defined | unknown) => Component
-type ReaderIndexCallback<R> = (this : Component,value : defined,extra? : unknown) => R
+type ReaderIndexCallback<R> = (this : Component,offset : defined,extra? : unknown) => R
 type SignalConnectionCallback = (newValue : number) => void
 
 // Version control (only once)
@@ -121,6 +121,35 @@ function readNfp24(b : buffer,count : number,offset : number) : number[] {
     return fps
 }
 
+
+function readArray<T extends unknown & Array<unknown>>(
+    component : Component,
+    types : BitstreamTypes[],
+    source : T,
+    sourceOffset : number
+) : LuaTuple<[T,number]> {
+    const nestedArray : T[] = []
+    Resolver.resolveArray(types,(targetType,typeCount,hasNestedFlag) => {
+        if(typeCount) {
+            for(const i of $range(1,typeCount)) {
+                const [element,elementOffset] = component.readAs(targetType,sourceOffset)
+                sourceOffset = elementOffset
+                if(hasNestedFlag) { tblinsert(nestedArray,element) }
+                else { tblinsert(source,element) }
+            }
+        }
+        else {
+            const [element,elementOffset] = component.readAs(targetType,sourceOffset)
+            sourceOffset = elementOffset
+            if(hasNestedFlag) { tblinsert(nestedArray,element) }
+            else { tblinsert(source,element) }           
+        }
+        if(hasNestedFlag) { tblinsert(source,tblclone(nestedArray)) }
+        tblclear(nestedArray)
+    })
+    return $tuple(source,sourceOffset)
+}
+
 export abstract class Constructor {
 
     /**
@@ -221,6 +250,18 @@ class Component {
         return readFunc(...args) as R
     }
  
+    public readValue<A extends unknown & Array<unknown>,R>(
+        readFunc : (...args : A | undefined) => R,
+        ...args : A | undefined
+    ) : R {
+        let argsLen = args.size()
+        let offset = (typeOf(args[0] === "number") ? args[0] : args[1]) as number
+        let bytes = (typeOf(args[1] === "number") && args[1] !== offset ? args[1] : args[2]) as number
+        if(bytes === 0 || !bytes) error("No bytes specified for the actual function.");
+        this.ensureReadable(offset,bytes)
+        return readFunc(...args)
+    } 
+    
     /*
     * Makes it easier to read implemented types like 24bit-integer etc while using the same function.
     */
@@ -2350,13 +2391,13 @@ class Component {
             let formatted = (writeType as BitstreamTableType)
             let typeName = formatted.Type
             if(typeName === "Array") {
-                Resolver.iterateArray(formatted.Types,(value as [defined]),(t,v) => {
-                    this.writeAs(t as BitstreamTypes,v as defined)
+                Resolver.iterateArray(formatted.Types,(value as unknown[]),(t,v) => {
+                    this.writeAs(t,v)
                 })
             }
             else if(typeName === "Struct") {
                 Resolver.iterateStruct(formatted as StructSchema,(value as Record<string,unknown>),(t,v) => {
-                    this.writeAs(t as BitstreamTypes,v as defined)
+                    this.writeAs(t,v)
                 })
             }
             else {
@@ -2387,11 +2428,11 @@ class Component {
     * @lastest modification : v4.0
     * @since v2.8
     */
-    public writeArray<T>(types : [BitstreamTypes],values : [T]) {
+    public writeArray<T>(types : [BitstreamTypes],values : T[]) {
         assert(typeOf(types) === "table","First argument is expected to be a table containing types")
         assert(typeOf(values) === "table","Second argument is expected to be a array of values")
         Resolver.iterateArray(types,values,(t,v) => {
-            this.writeAs(t as BitstreamTypes,v)
+            this.writeAs(t,v)
         })
         return this
     }
@@ -4081,9 +4122,40 @@ class Component {
     */
     public readAs<T extends BitstreamTypes | unknown[]>(
         readType : T,
-        offset? : number
-    ) {
-
+        offset? : number,
+        extra? : unknown // Mostly used for string len.
+    ) : LuaTuple<[unknown,number]> {
+        offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
+        const readTypeOf = typeOf(readType)
+        let value = undefined
+        switch (readTypeOf) {
+            case "table":
+                let _tempReadType = (readType as BitstreamTableType)
+                const typeName = _tempReadType.Type
+                if(typeName === "Array") {
+                    const [newSource,newOffset] = readArray(this,_tempReadType.Types,[],offset)
+                    value = newSource
+                    offset = newOffset
+                    break;
+                }
+                else if(typeName === "Struct") {
+                    // TODO: struct 
+                }
+                else {
+                    const extra = _tempReadType.Length || _tempReadType.Option
+                    if(typeOf(extra) !== "number") {
+                        _tempReadType.Type = (_tempReadType.Type + extra) as BitstreamTypesName
+                    }
+                    value = (this[`read${_tempReadType.Type}` as keyof unknown] as ReaderIndexCallback<unknown>)(offset,extra)
+                    offset += Resolver.resolveBytesNeeded(readType as BitstreamTypes,value)
+                }
+                break;
+            default:
+                value = (this[`read${readType as string}` as keyof unknown] as ReaderIndexCallback<unknown>)(offset)
+                offset += Resolver.resolveBytesNeeded(readType as BitstreamTypes,value)
+                break;
+        }
+        return $tuple(value,offset)
     }
 
     /*

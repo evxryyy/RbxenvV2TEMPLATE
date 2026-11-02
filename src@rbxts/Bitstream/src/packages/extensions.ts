@@ -1,5 +1,6 @@
 import * as Types from "./typeHelper"
 import { Enumeration,BitstreamTypesName } from "./enumeration"
+import exp = math.exp;
 
 // math lib
 const huge = math.huge; const floor = math.floor
@@ -101,29 +102,25 @@ export abstract class Extensions {
     * Return the unsigned 16-bit value, the sign, mantissa, and exponent.
     */
     public static toFloat16(value : number) : LuaTuple<[number,number,number,number]> {
-        let uint16 = 0
         let sign = 0
         let mantissa = 0
         let exponent = 0
-        if(value === 0) uint16 = 16
-        else if(value !== value) uint16 = fNAN
-        else if(value === huge) uint16 = fInfinity
-        else if(value === -huge) uint16 = -fInfinity
-        else {
-            if(value < 0) { sign = 1; value = -value }
-            exponent = floor(log(value,2))
-            mantissa = value / pow(2,exponent - 1)
-            exponent = exponent + 15
-            if(exponent <= 0) {
-                mantissa = value / pow(2,-14)
-                exponent = 0
-            }
-            else if(exponent >= 31) {
-                uint16 = (sign << 15) | fInfinity
-                return $tuple(uint16,sign,mantissa,exponent)
-            }
-            uint16 = ((sign << f15bit) | (exponent << f10bit) | (floor(mantissa * 1024) & fSubNormal))
+        if(value < 0) { sign = 1; value = -value }
+        else if(value !== value) { exponent = 31; mantissa = 512 }
+        else if(value === huge) { exponent = 31 }
+        else if(value === 0) { return $tuple(0,sign,0,0) }
+        else if(value < pow(2,-14)) {
+            mantissa = floor(value * pow(2,24) + 0.5);
+            if(exponent >= 1024) { exponent = 1; mantissa = 0 }
         }
+        else {
+            let e = floor(log(value) / log(2))
+            mantissa = floor(((value / pow(2,e)) - 1) * 1024 + 0.5)
+            exponent = e + 15
+            if(mantissa >= 1024) { mantissa = 0; exponent++ }
+            if(exponent >= 31) { exponent = 31; mantissa = 0 }
+        }
+        const uint16 = (sign << 15) | (exponent << 10) | mantissa
         return $tuple(uint16,sign,mantissa,exponent)
     }
 
@@ -142,7 +139,7 @@ export abstract class Extensions {
         if(exponent === 0) {
             if(mantissa === 0) return (sign === 0) ? 0 : -0
             else {
-                let value = (mantissa / 1024) * (pow(2,-14))
+                const value = mantissa * pow(2,24)
                 return (sign === 0) ? value : -value
             }
         }
@@ -150,7 +147,7 @@ export abstract class Extensions {
             if(mantissa === 0) return (sign === 0) ? huge : -huge
             else return fNAN
         }
-        let value = (1 + mantissa / 1024) * (pow(2,exponent - f15bit))
+        const value = (1 + mantissa / 1024) * (pow(2,exponent - f15bit))
         return (sign === 0) ? value : -value
     }
 
@@ -226,19 +223,26 @@ export abstract class Extensions {
         let sign = 0
         if(float < 0) { sign = 1; float = -float }
         else if(float === 0) return 0;
-        let bits = this.floatToBits(float)
-        let exponent = bit32.extract(bits,23,8)
-        let mantissa = bit32.extract(bits,0,23)
-        let exp = exponent - 127 + f15bit + 1
-        if(exp <= 0) {
-            let m = floor(float * pow(2,f15bit + f24_mant_bits) + 0.5)
-            return (sign << 23) | m
+        const bits = this.floatToBits(float)
+        const exponent32 = bit32.extract(bits,23,8)
+        const mantissa32 = bit32.extract(bits,0,23)
+        let exponent = exponent32 - 127 + 16
+        let mantissa = 0
+        if(exponent32 === 255) return (sign << 23) | 0x7FFFFF;
+        if(exponent <= 0) {
+            mantissa = floor(float * pow(2,33) + 0.5)
+            if(mantissa >= 262_144) {
+                return (sign << 23) | (1 << 18)
+            }
+            return (sign << 23) | mantissa
         }
-        else if(exp > f31bit) {
-            return (sign << 23) | 0x7FFFFF
+        mantissa = floor(mantissa32 / 32 + 0.5)
+        if(mantissa >= 262_144) {
+            mantissa = 0;
+            exponent++;
         }
-        mantissa = (mantissa >>> (23 - f24_mant_bits))
-        return ((sign << 23) | (exp << f24_mant_bits) | mantissa)
+        if(exponent > 31) return (sign << 23) | 0x7FFFFF
+        return (sign << 23) | (exponent << 18) | mantissa
     }
 
     /*
@@ -254,11 +258,9 @@ export abstract class Extensions {
         let mantissa = bit32.extract(b24,0,f24_mant_bits)
         if(exponent === 0 && mantissa === 0) return 0;
         let value = 0
-        if(exponent === 0) value = mantissa * pow(2,-(f24_exp_bits + f24_mant_bits))
+        if(exponent === 0) value = mantissa * pow(2,-33)
         else {
-            let ieeeExponent = exponent - f15bit + 127 - 1
-            let ieee = ((ieeeExponent << 23) | (mantissa << (23 - f24_mant_bits)))
-            value = this.bitsToFloat(ieee)
+            value = (1 + mantissa / 262_144) * pow(2,exponent - 16)
         }
         return (sign === 1) ? -value : value
     }
@@ -273,14 +275,16 @@ export abstract class Extensions {
         let sign = 0
         if(float < 0) {sign = 1; float = -float }
         else if(float === 0) return 0;
+        else if(float !== float || float === huge) return (sign << 7) | 0x7F;
         let exponent = floor(log(float) / log(2))
         let mantissa = floor(((float / (pow(2,exponent))) - 1) * 8 + 0.5)
-        exponent += 7
-        if(exponent < 0) {
-            exponent = 0
-            mantissa = 0
+        if(exponent < -7) return sign << 7;
+        if(mantissa >= 8) {
+            mantissa = 0;
+            exponent++;
         }
-        else if(exponent > 15) {
+        exponent += 7
+        if(exponent > 15) {
             exponent = 15
             mantissa = 7
         }

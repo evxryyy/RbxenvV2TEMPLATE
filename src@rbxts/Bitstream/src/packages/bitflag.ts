@@ -78,7 +78,6 @@ const readu8 = buffer.readu8; const readstring = buffer.readstring;
 * @Class Bitflag
 *
 * A very important and useful class for schemaless serialization, as well as for converting and writing structs.
-* NOTE: THIS NEW LIBRARY MUST BE TESTED. PLEASE AVOID EXPERIMENTING WITH IT TOO MUCH FOR THE TIME BEING.
 */
 export abstract class Bitflag {
 

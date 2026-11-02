@@ -1,7 +1,7 @@
 /*
 	Author : evxry_ll
 	
-	@Name: Types
+	@Name: typeHelper
 	
 	@Description:
 	This module is part of `Bitstream` module. It contains some types used internally.

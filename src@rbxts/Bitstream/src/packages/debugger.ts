@@ -19,8 +19,8 @@ export abstract class Debugger {
     // Contains all common errrors
     public static readonly ErrorMessages : Record<ErrorEnumeration,string> = {
         ["Type-missmatch"] : "Bitstream.%s: Type missmatch this require a %s type.",
-        ["Doesn't have enough space"] : "Bitstream.%s: Doesn't have enough space to write this type.",
-        ["Out of bounds"] : "Bitstream.%s: Buffer read out of bounds (offset=%d, type_size=%d, buffer_size=%d)"
+        ["Doesn't have enough space"] : "Bitstream: Doesn't have enough space to write this type.",
+        ["Out of bounds"] : "Bitstream: Buffer read out of bounds (offset=%d, type_size=%d, buffer_size=%d)"
     }
 
     // Simple configuration table
