@@ -1,6 +1,5 @@
 import * as Types from "./typeHelper"
 import { Enumeration,BitstreamTypesName } from "./enumeration"
-import exp = math.exp;
 
 // math lib
 const huge = math.huge; const floor = math.floor
