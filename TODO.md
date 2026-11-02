@@ -14,8 +14,8 @@
 ----
 
 ## Rbxts Version
-- Test new `Bitflag` & `Resolver`.
-- Make any ported luau code to @rbxts very different and looks real modern ts and not some copy and paste code.
+- Replace all `executeRead` in the component by `readValue`
+- Change Debugger to a simple `VersionController` and debug directly in the component.
 - Same as Luau more generic functions
 - Finish custom readers
 - Finish serialization with schema and schemaless
