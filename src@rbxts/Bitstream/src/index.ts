@@ -20,6 +20,12 @@ import { Bitflag } from "./packages/bitflag"
 type WriterIndexCallback = (this : Component,value : defined | unknown) => Component
 type ReaderIndexCallback<R> = (this : Component,offset : defined,extra? : unknown) => R
 type SignalConnectionCallback = (newValue : number) => void
+type ReaderParameters = {
+    buffer : buffer,
+    offset : number,
+    bytes? : number,
+    bits? : number
+}
 
 // Version control (only once)
 let versionIsVerified = false
@@ -207,69 +213,20 @@ class Component {
         }
         return true
     }
-
-    /*
-    * Execute a function on the buffer at the current offset.
-    * Will throw an error if there is not enough space or out of bounds.
-    * 
-    * @Generics A<extends unknown[]> : Array of parameters for the function.
-    * @Generics R : Return type of the function.
-    * 
-    * @Parameters:
-    * - func : (...args : A) -> R
-    * - ...args : A
-    * 
-    * @Returns: R
-    */
-    private executeRead<A extends unknown[],R>(readFunc : (...args : A) => R,...args : A) : R {
-        if(readFunc === undefined) return undefined as R;
-        let readArguments = table.pack(...args as defined[])
-        let argsLen = readArguments.n
-
-        let offset : number = typeOf(readArguments[0] === "number") ? readArguments[0] as number : readArguments[1] as number
-        let useBitoffset = false
-
-        let functionName = Debugger.getFunctionName(3)[0] as string
-        let functionType = strsub(functionName,5,functionName.size())
-
-        if(functionType === "U1" || functionType === "Bool1" || functionType === "Bool8") useBitoffset = true;
-
-        // Ensure there is enough space to read
-        let bytes = (readArguments[argsLen] === offset && argsLen <= 2) ? undefined : readArguments[argsLen] as number
-        if(bytes === undefined && Constants.REQUIRED_BYTES[functionType as keyof unknown]) {
-            bytes = (typeOf(Constants.REQUIRED_BYTES[functionType as keyof unknown]) === "number") ?
-                Constants.REQUIRED_BYTES[functionType as keyof unknown] : 0
-        }
-
-        // Check if the bytes is 0 
-        if(bytes === 0) error("No bytes specified for function " + functionType + "");
-
-        this.ensureReadable((useBitoffset === true) ? offset / 8 : offset,bytes as number)
-
-        // Execute the function and return the result
-        return readFunc(...args) as R
-    }
- 
-    public readValue<A extends unknown & Array<unknown>,R>(
-        readFunc : (...args : A | undefined) => R,
-        ...args : A | undefined
-    ) : R {
-        let argsLen = args.size()
-        let offset = (typeOf(args[0] === "number") ? args[0] : args[1]) as number
-        let bytes = (typeOf(args[1] === "number") && args[1] !== offset ? args[1] : args[2]) as number
-        if(bytes === 0 || !bytes) error("No bytes specified for the actual function.");
-        this.ensureReadable(offset,bytes)
-        return readFunc(...args)
-    } 
     
-    /*
-    * Makes it easier to read implemented types like 24bit-integer etc while using the same function.
-    */
-    private executeReadImplementation<A extends unknown[],R>(readFunc : () => R,...args : A) : R {
-        if(readFunc === undefined) return undefined as R;
-        return this.executeRead(readFunc as (...args : A) => R,...args)
+    private readValue<A extends unknown & Array<unknown>,R>(
+        readFunc : ((...args : A) => R) | (() => R),
+        readParameters : ReaderParameters,
+    ){
+        this.ensureReadable(readParameters.offset,readParameters.bytes || 1)
+        let args : Parameters<typeof readFunc> = [
+            readParameters.buffer,
+            readParameters.offset,
+            readParameters.bytes || readParameters.bits || 1
+        ] as A
+        return readFunc(...args)
     }
-
+    
     //
 
     /**
@@ -2507,7 +2464,11 @@ class Component {
     */
     public readI8(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(readi8,this.buffer,offset)
+        return this.readValue(buffer.readi8,{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.I8
+        })
     }
 
     /*
@@ -2520,7 +2481,11 @@ class Component {
     */
     public readI16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(readi8,this.buffer,offset)
+        return this.readValue(readi8,{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.I16
+        })
     }
 
     /*
@@ -2533,7 +2498,7 @@ class Component {
     */
     public readI24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             const bytes = [
                 readu8(this.buffer,offset),
                 readu8(this.buffer,offset + 1),
@@ -2543,7 +2508,11 @@ class Component {
             // sign bit set (2^7 in the MSB)
             if(bytes[0] >= fsbit8) value -= fbit24 // subtract 2^24
             return value
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.I24
+        })
     }
 
     /*
@@ -2556,7 +2525,11 @@ class Component {
     */
     public readI32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(readi32,this.buffer,offset)
+        return this.readValue(readi32,{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.I32
+        })
     }
 
     /*
@@ -2569,7 +2542,7 @@ class Component {
     */
     public readI40(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             const bytes = [
                 readu8(this.buffer,offset),
                 readu8(this.buffer,offset + 1),
@@ -2580,7 +2553,11 @@ class Component {
             let value = bytes[0] * fbit32 + bytes[1] * fbit24 + bytes[2] * fbit16 + bytes[3] * fbit8 + bytes[4]
             if(value >= fsbits40) value -= fbit40
             return value
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.I40
+        })
     }
 
     /*
@@ -2593,7 +2570,7 @@ class Component {
     */
     public readI48(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue((...args : [number]) => {
             const bytes = [
                 readu8(this.buffer,offset),
                 readu8(this.buffer,offset + 1),
@@ -2605,7 +2582,11 @@ class Component {
             let value = bytes[0] * fbit40 + bytes[1] * fbit32 + bytes[2] * fbit24 + bytes[3] * fbit16 + bytes[4] * fbit8 + bytes[5]
             if(value >= fsbits48) value -= fbit48
             return value
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.I48
+        })
     }
 
     /*
@@ -2618,7 +2599,7 @@ class Component {
     */
     public readI54(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             const bytes = [
                 readu8(this.buffer,offset),
                 readu8(this.buffer,offset + 1),
@@ -2632,7 +2613,11 @@ class Component {
             let value = msb54 * fbit48 + bytes[1] * fbit40 + bytes[2] * fbit32 + bytes[3] * fbit24 + bytes[4] * fbit16 + bytes[5] * fbit8 + bytes[6]
             if(value >= fsbits54) value -= fbit54
             return value
-        },offset)       
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.I54
+        })       
     }
 
     //#endregion
@@ -2649,7 +2634,11 @@ class Component {
     */
     public readU1(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number * 8) <= this.offset * 8 ? offset : this.offset) as number * 8
-        return this.executeRead(readbits,this.buffer,offset,1)
+        return this.readValue(readbits,{
+            buffer: this.buffer,
+            offset: offset,
+            bits: Constants.REQUIRED_BYTES.U1
+        })
     }
 
     /*
@@ -2662,7 +2651,11 @@ class Component {
     */
     public readU8(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(readu8,this.buffer,offset)
+        return this.readValue(readu8,{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.U8
+        })
     }
 
     /*
@@ -2675,7 +2668,11 @@ class Component {
     */    
     public readU16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(readu16,this.buffer,offset)
+        return this.readValue(readu16,{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.U16
+        })
     }
 
     /*
@@ -2688,14 +2685,18 @@ class Component {
     */      
     public readU24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             const bytes = [
                 readu8(this.buffer,offset),
                 readu8(this.buffer,offset + 1),
                 readu8(this.buffer,offset + 2)
             ]
             return (bytes[0] << 16 | bytes[1] << 8) | bytes[2]
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.U24
+        })
     }
 
     /*
@@ -2708,7 +2709,11 @@ class Component {
     */
     public readU32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(readu32,this.buffer,offset)
+        return this.readValue(readu32,{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.U32
+        })
     }
 
     /*
@@ -2721,7 +2726,7 @@ class Component {
     */
     public readU40(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             const bytes = [
                 readu8(this.buffer,offset),
                 readu8(this.buffer,offset + 1),
@@ -2731,7 +2736,11 @@ class Component {
             ]
             let value = bytes[0] * fbit32 + bytes[1] * fbit24 + bytes[2] * fbit16 + bytes[3] * fbit8 + bytes[4]
             return value
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.U40
+        })
     }
 
     /*
@@ -2744,7 +2753,7 @@ class Component {
     */
     public readU48(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => { 
+        return this.readValue(() => { 
             const bytes = [
                 readu8(this.buffer,offset),
                 readu8(this.buffer,offset + 1),
@@ -2755,7 +2764,11 @@ class Component {
             ]
             let value = bytes[0] * fbit40 + bytes[1] * fbit32 + bytes[2] * fbit24 + bytes[3] * fbit16 + bytes[4] * fbit8 + bytes[5]
             return value
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.U48
+        })
     }    
 
     /*
@@ -2768,7 +2781,7 @@ class Component {
     */
     public readU54(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             const bytes = [
                 readu8(this.buffer,offset),
                 readu8(this.buffer,offset + 1),
@@ -2780,7 +2793,11 @@ class Component {
             ]
             let value = bytes[0] * fbit48 + bytes[1] * fbit40 + bytes[2] * fbit32 + bytes[3] * fbit24 + bytes[4] * fbit16 + bytes[5] * fbit8 + bytes[6]
             return value
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.U54
+        })
     }
 
     //#endregion
@@ -2798,7 +2815,11 @@ class Component {
     public readString(length : number,offset? : number) {
         assert(typeOf(length) === "number","First argument must be the length of the string you want to read.")
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(readstring,this.buffer,this.offset,length)
+        return this.readValue(readstring,{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: length
+        })
     }
 
     /*
@@ -2819,8 +2840,11 @@ class Component {
         let enumValue = this.readU8(offset)
         let enumName = Enumeration.fromValue(enumValue)
         const length = (this[`read${enumName}` as keyof unknown] as ReaderIndexCallback<number>)(offset + 1)
-        this.ensureReadable(offset + 1 + Constants.REQUIRED_BYTES[enumName as keyof unknown],length)
-        return readstring(this.buffer,offset + 2,length)
+        return this.readValue(readstring,{
+            buffer: this.buffer,
+            offset: offset + 1 + Constants.REQUIRED_BYTES[enumName as keyof unknown],
+            bytes: length
+        })
     }
 
     //#endregion
@@ -2837,7 +2861,11 @@ class Component {
     */
     public readBool1(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number * 8) <= this.offset * 8 ? offset : this.offset) as number * 8
-        return (this.executeRead(readbits,this.buffer,offset,1) === 1 ? true : false)
+        return (this.readValue(readbits,{
+            buffer: this.buffer,
+            offset: offset,
+            bits: Constants.REQUIRED_BYTES.Bool1
+        }) === 1)
     }
 
     /*
@@ -2853,10 +2881,10 @@ class Component {
     */
     public readBool8(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let booleans : boolean[] = []
             for(let i = 0; i <= 7; i++) {
-                booleans[i] = (readbits(this.buffer,offset * 8 + i,1) === 1 ? true : false)
+                booleans[i] = (readbits(this.buffer,offset * 8 + i,1) === 1)
             }
             return {
                 value : booleans,
@@ -2866,10 +2894,14 @@ class Component {
                         if(v) trueFlag++
                         else falseFlag++;
                     })
-                    return (trueFlag >= falseFlag) ? true : false
+                    return (trueFlag >= falseFlag)
                 }
             }
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Bool8
+        })
     }
 
     //#endregion
@@ -2886,9 +2918,13 @@ class Component {
     */
     public readF8(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             return Extensions.decodeF8(readu8(this.buffer,offset))
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.F8
+        })
     }
 
     /*
@@ -2901,9 +2937,13 @@ class Component {
     */
     public readF16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             return Extensions.decodeF16(this.buffer,offset)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.F16
+        })
     }
 
     /*
@@ -2916,10 +2956,14 @@ class Component {
     */
     public readF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let value = readu8(this.buffer,offset) << 16 | readu8(this.buffer,offset + 1) << 8 | readu8(this.buffer,offset + 2)
             return Extensions.decodeF24(value)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.F24
+        })
     }
 
     /*
@@ -2932,7 +2976,11 @@ class Component {
     */
     public readF32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(readf32,this.buffer,offset)
+        return this.readValue(readf32,{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.F32
+        })
     }
 
     /*
@@ -2945,7 +2993,11 @@ class Component {
     */
     public readF64(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeRead(readf64,this.buffer,offset)        
+        return this.readValue(readf64,{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.F64
+        })        
     }
 
     //#endregion
@@ -2966,10 +3018,14 @@ class Component {
     */
     public readVector2float24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y] = readNfp24(this.buffer,2,offset)
             return new Vector2(x,y)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector2float24
+        })
     }
 
     /*
@@ -2982,10 +3038,14 @@ class Component {
     */
     public readVector2float32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y] = [readf32(this.buffer,offset),readf32(this.buffer,offset + 4)]
             return new Vector2(x,y)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector2float32
+        })
     }
 
     /*
@@ -2998,10 +3058,14 @@ class Component {
     */
     public readVector2int16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y] = [readi16(this.buffer,offset),readi16(this.buffer,offset + 2)]
             return new Vector2int16(x,y)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector2int16
+        })
     }
 
     /*
@@ -3014,10 +3078,14 @@ class Component {
     */
     public readVector2uint16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y] = [readu16(this.buffer,offset),readu16(this.buffer,offset + 2)]
             return new Vector2(x,y)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector2uint16
+        })
     }
 
     /*
@@ -3030,10 +3098,14 @@ class Component {
     */
     public readVector2(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y] = [readf64(this.buffer,offset),readf64(this.buffer,offset + 8)]
             return new Vector2(x,y)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector2
+        })
     }
 
     //#endregion
@@ -3050,10 +3122,14 @@ class Component {
     */
     public readVector3float24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y,z] = readNfp24(this.buffer,3,offset)
             return new Vector3(x,y,z)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector3float24
+        })
     }
 
     /*
@@ -3066,14 +3142,18 @@ class Component {
     */
     public readVector3float32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y,z] = [
                 readf32(this.buffer,offset),
                 readf32(this.buffer,offset + 4),
                 readf32(this.buffer,offset + 8)
             ]
             return new Vector3(x,y,z)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector3float32
+        })
     }
 
     /*
@@ -3086,14 +3166,18 @@ class Component {
     */
     public readVector3int16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y,z] = [
                 readi16(this.buffer,offset),
                 readi16(this.buffer,offset + 2),
                 readi16(this.buffer,offset + 4)
             ]
             return new Vector3int16(x,y,z)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector3int16
+        })
     }
 
     /*
@@ -3106,14 +3190,18 @@ class Component {
     */
     public readVector3uint16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y,z] = [
                 readu16(this.buffer,offset),
                 readu16(this.buffer,offset + 2),
                 readu16(this.buffer,offset + 4)
             ]
             return new Vector3(x,y,z)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector3uint16
+        })
     }
 
     /*
@@ -3126,14 +3214,18 @@ class Component {
     */
     public readVector3(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [x,y,z] = [
                 readf64(this.buffer,offset),
                 readf64(this.buffer,offset + 8),
                 readf64(this.buffer,offset + 16)
             ]
             return new Vector3(x,y,z)            
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Vector3
+        })
     }
 
     //#endregion
@@ -3150,7 +3242,7 @@ class Component {
     */
     public readCFrameQuaternion(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let pos = {
                 x: readf32(this.buffer,offset),
                 y: readf32(this.buffer,offset + 4),
@@ -3166,7 +3258,11 @@ class Component {
                 new Vector3(pos.x,pos.y,pos.z),
                 quat
             )
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.CFrameQuaternion
+        })
     }
 
     /*
@@ -3179,10 +3275,14 @@ class Component {
     */
     public readCFrameF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let data = readNfp24(this.buffer,6,offset)
             return CFrame.Angles(data[3],data[4],data[5]).add(new Vector3(data[0],data[1],data[2]))
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.CFrameF24
+        })
     }
 
     /*
@@ -3195,7 +3295,7 @@ class Component {
     */
     public readCFrameF32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [px,py,pz] = [
                 readf32(this.buffer,offset),
                 readf32(this.buffer,offset + 4),
@@ -3207,7 +3307,11 @@ class Component {
                 readf32(this.buffer,offset + 20),                
             ]
             return CFrame.Angles(x,y,z).add(new Vector3(px,py,pz))
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.CFrameF32
+        })
     }
    
     /*
@@ -3220,7 +3324,7 @@ class Component {
     */
     public readCFrameF64(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [px,py,pz] = [
                 readf64(this.buffer,offset),
                 readf64(this.buffer,offset + 8),
@@ -3232,7 +3336,11 @@ class Component {
                 readf64(this.buffer,offset + 40),                
             ]
             return CFrame.Angles(x,y,z).add(new Vector3(px,py,pz))
-        },offset)        
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.CFrameF64
+        })        
     }
 
     /*
@@ -3249,7 +3357,7 @@ class Component {
     */
     public readCFrameQuantized(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let pos = {
                 x: readi16(this.buffer,offset) / POSITION_SCALE,
                 y: readi16(this.buffer,offset + 2) / POSITION_SCALE,
@@ -3261,7 +3369,11 @@ class Component {
                 z: readi16(this.buffer,offset + 10) / ROTATION_SCALE                
             }
             return new CFrame(pos.x,pos.y,pos.z).mul(CFrame.fromEulerAnglesXYZ(rot.x,rot.y,rot.z))
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.CFrameQuantized
+        })
     }
 
     //#endregion
@@ -3278,14 +3390,18 @@ class Component {
     */
     public readColor3(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [r,g,b] = [
                 readu8(this.buffer,offset)/255,
                 readu8(this.buffer,offset + 1)/255,
                 readu8(this.buffer,offset + 2)/255,
             ]
             return new Color3(r,g,b)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Color3
+        })
     }
 
     /*
@@ -3298,10 +3414,14 @@ class Component {
     */
     public readColor3F24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let data = readNfp24(this.buffer,3,offset)
             return new Color3(data[0],data[1],data[2])
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Color3F24
+        })
     }
 
     /*
@@ -3314,14 +3434,18 @@ class Component {
     */
     public readColor3F32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [r,g,b] = [
                 readf32(this.buffer,offset),
                 readf32(this.buffer,offset + 4),
                 readf32(this.buffer,offset + 8)
             ]
             return new Color3(r,g,b)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Color3F32
+        })
     }
 
     /*
@@ -3334,14 +3458,18 @@ class Component {
     */
     public readColor3F64(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [r,g,b] = [
                 readf64(this.buffer,offset),
                 readf64(this.buffer,offset + 8),
                 readf64(this.buffer,offset + 16)
             ]
             return new Color3(r,g,b)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Color3F64
+        })
     }
 
     //#endregion
@@ -3358,13 +3486,17 @@ class Component {
     */
     public readUDim(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [scale,uiOffset] = [
                 readf32(this.buffer,offset),
                 readi32(this.buffer,offset + 4)
             ]
             return new UDim(scale,uiOffset)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.UDim
+        })
     }
 
     /*
@@ -3377,7 +3509,7 @@ class Component {
     */    
     public readUDim2(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [scaleX,scaleY,uiOffsetX,uiOffsetY] = [
                 readf32(this.buffer,offset),
                 readf32(this.buffer,offset + 8),
@@ -3385,7 +3517,11 @@ class Component {
                 readi32(this.buffer,offset + 12)
             ]
             return new UDim2(scaleX,uiOffsetX,scaleY,uiOffsetY)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.UDim2
+        })
     }
 
     //#endregion
@@ -3402,10 +3538,14 @@ class Component {
     */
     public readRectFloat24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let data = readNfp24(this.buffer,4,offset)
             return new Rect(data[0],data[1],data[2],data[3])
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.RectFloat24
+        })
     }
 
     /*
@@ -3418,7 +3558,7 @@ class Component {
     */
     public readRectFloat32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [minX,minY,maxX,maxY] = [
                 readf32(this.buffer,offset),
                 readf32(this.buffer,offset + 4),
@@ -3426,7 +3566,11 @@ class Component {
                 readf32(this.buffer,offset + 12)
             ]
             return new Rect(minX,minY,maxX,maxY)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.RectFloat32
+        })
     }
 
     /*
@@ -3439,7 +3583,7 @@ class Component {
     */
     public readRect(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [minX,minY,maxX,maxY] = [
                 readf64(this.buffer,offset),
                 readf64(this.buffer,offset + 8),
@@ -3447,7 +3591,11 @@ class Component {
                 readf64(this.buffer,offset + 24)
             ]            
             return new Rect(minX,minY,maxX,maxY)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Rect
+        })
     }
 
     //#endregion
@@ -3464,10 +3612,14 @@ class Component {
     */
     public readEnum(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let id = readu16(this.buffer,offset)
             return Constants.EnumItemList[id]
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Enum
+        })
     }
 
     //#endregion
@@ -3484,14 +3636,18 @@ class Component {
     */
     public readRegion3(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let cf = this.readCFrameF64(offset)
             let size = this.readVector3(offset + 48)
             let halfSize = size.mul(0.5)
             let min = cf.Position.sub(halfSize)
             let max = cf.Position.add(halfSize)
             return new Region3(min,max)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Region3
+        })
     }
 
     /*
@@ -3504,13 +3660,17 @@ class Component {
     */
     public readRegion3int16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [min,max] = [
                 this.readVector3int16(offset),
                 this.readVector3int16(offset + 6)
             ]
             return new Region3int16(min,max)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Region3int16
+        })
     }
 
     /*
@@ -3523,14 +3683,18 @@ class Component {
     */
     public readRegion3Quaternion(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let cf = this.readCFrameQuaternion(offset)
             let size = this.readVector3(offset + 28)
             let halsize = size.mul(0.5)
             let min = cf.Position.sub(halsize)
             let max = cf.Position.add(halsize)
             return new Region3(min,max)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Region3Quaternion
+        })
     }
 
     /*
@@ -3543,14 +3707,18 @@ class Component {
     */
     public readRegion3CFrameF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let cf = this.readCFrameF24(offset)
             let size = this.readVector3(offset + 18)
             let halfSize = size.mul(0.5)
             let min = cf.Position.sub(halfSize)
             let max = cf.Position.add(halfSize)
             return new Region3(min,max)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Region3CFrameF24
+        })
     }
 
     /*
@@ -3563,14 +3731,18 @@ class Component {
     */
     public readRegion3CFrameF32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let cf = this.readCFrameF32(offset)
             let size = this.readVector3(offset + 24)
             let halfSize = size.mul(0.5)
             let min = cf.Position.sub(halfSize)
             let max = cf.Position.add(halfSize)
             return new Region3(min,max)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Region3CFrameF32
+        })
     }
 
     /*
@@ -3583,14 +3755,18 @@ class Component {
     */
     public readRegion3Quantized(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let cf = this.readCFrameQuantized(offset)
             let size = this.readVector3(offset + 12)
             let halfSize = size.mul(0.5)
             let min = cf.Position.sub(halfSize)
             let max = cf.Position.add(halfSize)
             return new Region3(min,max)        
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.Region3Quantized
+        })
     }
 
     //#endregion
@@ -3825,8 +4001,7 @@ class Component {
         let length = this.readU8(offset)
         offset++;
         let colorSequence : ColorSequenceKeypoint[] = []
-        // Every colorSequence will have the -1 this is maybe not the right thing to do but its a test.
-        for(let i = 0; i <= length - 1; i++) {
+        for(const i of $range(1,length)) {
             this.ensureReadable(offset,4)
             let t = readf32(this.buffer,offset)
             let value = this.readColor3(offset + 4)
@@ -3849,7 +4024,7 @@ class Component {
         let length = this.readU8(offset)
         offset++;
         let colorSequence : ColorSequenceKeypoint[] = []
-        for(let i = 0; i <= length - 1; i++) {
+        for(const i of $range(1,length)) {
             this.ensureReadable(offset,4)
             let t = readf32(this.buffer,offset)
             let value = this.readColor3F24(offset + 4)
@@ -3872,7 +4047,7 @@ class Component {
         let length = this.readU8(offset)
         offset++;
         let colorSequence : ColorSequenceKeypoint[] = []
-        for(let i = 0; i <= length - 1; i++) {
+        for(const i of $range(1,length)) {
             this.ensureReadable(offset,4)
             let t = readf32(this.buffer,offset)
             let value = this.readColor3F32(offset + 4)
@@ -3895,7 +4070,7 @@ class Component {
         let length = this.readU8(offset)
         offset++;
         let colorSequence : ColorSequenceKeypoint[] = []
-        for(let i = 0;i <= length - 1; i++) {
+        for(const i of $range(1,length)) {
             this.ensureReadable(offset,4)
             let t = readf32(this.buffer,offset)
             let value = this.readColor3F64(offset + 4)
@@ -3919,13 +4094,17 @@ class Component {
     */
     public readNumberRange(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [min,max] = [
                 readf32(this.buffer,offset),
                 readf32(this.buffer,offset + 4)
             ]
             return new NumberRange(min,max)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.NumberRange
+        })
     }
 
     /*
@@ -3938,13 +4117,17 @@ class Component {
     */
     public readNumberRangeF16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [min,max] = [
                 Extensions.decodeF16(this.buffer,offset),
                 Extensions.decodeF16(this.buffer,offset + 2)
             ]
             return new NumberRange(min,max)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.NumberRangeF16
+        })
     }
 
     /* 
@@ -3957,10 +4140,14 @@ class Component {
     */
     public readNumberRangeF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let data = readNfp24(this.buffer,2,offset)
             return new NumberRange(data[0],data[1])
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.NumberRangeF24
+        })
     }
 
     /*
@@ -3973,13 +4160,17 @@ class Component {
     */
     public readNumberRangeF64(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.executeReadImplementation(() => {
+        return this.readValue(() => {
             let [min,max] = [
                 readf64(this.buffer,offset),
                 readf64(this.buffer,offset)
             ]
             return new NumberRange(min,max)
-        },offset)
+        },{
+            buffer: this.buffer,
+            offset: offset,
+            bytes: Constants.REQUIRED_BYTES.NumberRangeF64
+        })
     }
 
     //#endregion
@@ -3999,7 +4190,7 @@ class Component {
         let length = this.readU8(offset)
         offset++;
         let numberSequence : NumberSequenceKeypoint[] = []
-        for(let i = 0; i <= length - 1; i++) {
+        for(const i of $range(1,length)) {
             this.ensureReadable(offset,12)
             let t = readf32(this.buffer,offset)
             let value = readf32(this.buffer,offset + 4)
@@ -4023,7 +4214,7 @@ class Component {
         let length = this.readU8(offset)
         offset++;
         let numberSequence : NumberSequenceKeypoint[] = []
-        for(let i = 0; i <= length - 1; i++) {
+        for(const i of $range(1,length)) {
             this.ensureReadable(offset,10)
             let t = readf32(this.buffer,offset)
             let value = Extensions.decodeF16(this.buffer,offset + 4)
@@ -4047,7 +4238,7 @@ class Component {
         let length = this.readU8(offset)
         offset++;
         let numberSequence : NumberSequenceKeypoint[] = []
-        for(let i = 0; i <= length - 1; i++) {
+        for(const i of $range(1,length)) {
             this.ensureReadable(offset,11)
             let t = readf32(this.buffer,offset)
             let [value] = readNfp24(this.buffer,1,offset + 4)
@@ -4071,7 +4262,7 @@ class Component {
         let length = this.readU8(offset)
         offset++;
         let numberSequence : NumberSequenceKeypoint[] = [] 
-        for(let i = 0; i <= length - 1; i++) {
+        for(const i of $range(1,length)) {
             this.ensureReadable(offset,16)
             let t = readf32(this.buffer,offset)
             let value = readf64(this.buffer,offset + 4)
