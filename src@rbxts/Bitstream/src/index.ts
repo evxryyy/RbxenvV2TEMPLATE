@@ -13,9 +13,9 @@ import {
 import { Constants } from "./packages/constants"
 import { Signal } from "./packages/zignal"
 import { Extensions } from "./packages/extensions"
-import { Debugger } from "./packages/debugger"
 import { Resolver } from "./packages/resolver"
 import { Bitflag } from "./packages/bitflag"
+import { VersionController } from "./packages/versionController";
 
 type WriterIndexCallback = (this : Component,value : defined | unknown) => Component
 type ReaderIndexCallback<R> = (this : Component,offset : defined,extra? : unknown) => R
@@ -30,7 +30,7 @@ type ReaderParameters = {
 // Version control (only once)
 let versionIsVerified = false
 if(versionIsVerified === false) {
-    task.spawn(() => Debugger.verifyVersion())
+    task.spawn(() => VersionController.verifyVersion())
     versionIsVerified = true
 }
 
@@ -195,9 +195,7 @@ class Component {
             this.allocate(size)
             return true
         }
-        error(
-            Debugger.catchError("Doesn't have enough space")?.format(`${Debugger.getFunctionName()[0]}`)
-        )
+        error(`Unable to write to this buffer(${this.buffer}) because it does not have enough space for the current type. Byte(s) required: ${size}`)
     }
 
     /*
@@ -207,9 +205,7 @@ class Component {
     private ensureReadable(offset : number,bytes : number) : boolean {
         offset = typeOf(offset) === "number" ? offset : this.offset
         if(offset < 0 || offset + bytes > bufflen(this.buffer)) {
-            error(
-                Debugger.catchError("Out of bounds")?.format(`${offset}`,`${bytes}`,`${bufflen(this.buffer)}`)
-            )
+            error(`Unable to read from this buffer(${this.buffer}): out of bounds for the current type.`)
         }
         return true
     }
