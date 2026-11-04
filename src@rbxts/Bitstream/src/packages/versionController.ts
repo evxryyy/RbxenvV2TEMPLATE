@@ -14,9 +14,7 @@ export abstract class VersionController {
     public static readonly rawURL = "https://raw.githubusercontent.com/evxryyy/Rbxenv/refs/heads/main/Bitstream/VERSION.md"
     
     // Simple configuration table
-    public static Configuration : IConfiguration = {
-        VerifyVersion : true
-    }
+    public static Configuration : IConfiguration = { VerifyVersion : true }
 
     /*
     * Checks the current module version against the version available on GitHub. 
@@ -33,7 +31,7 @@ export abstract class VersionController {
             return HttpService.GetAsync(this.rawURL)
         }) as LuaTuple<[boolean,string]>
         if(!success) {
-            warn("Error detected during Debugger.verifyVersion() : " + res)
+            warn("Error detected during VersionControlleer.verifyVersion() : " + res)
             return;
         }
         const bitstreamSourceVersion = string.match(res,"[%d.]+")[0] as string
