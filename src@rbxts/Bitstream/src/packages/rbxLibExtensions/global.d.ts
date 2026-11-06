@@ -60,6 +60,21 @@ declare global {
     namespace debug {
         export function info(level : number,options : string) : LuaTuple<[unknown]>
     }
+    
+    namespace buffer {
+        /** Writes two vector components as 32-bit floating-point values to the buffer. */
+        export function writevectorf32x2(b: buffer, offset: number, value: vector): void;
+
+        /** Writes three vector components as 32-bit floating-point values to the buffer. */
+        export function writevectorf32x3(b: buffer, offset: number, value: vector): void;
+        
+        /** Reads two 32-bit floating-point values from the buffer into a vector. */
+        export function readvectorf32x2(b: buffer, offset: number): vector;
+
+        /** Reads three 32-bit floating-point values from the buffer into a vector. */
+        export function readvectorf32x3(b: buffer, offset: number): vector;    
+    }
+    
 }
 
 // Add missing services.
