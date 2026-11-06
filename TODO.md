@@ -9,12 +9,10 @@
     ```
 - Many others fixes
 - Fixes : Some functions use `ensureReadable` with a byte count that is higher than what is actually required.
-- Fixes : in `.copy` the the function `buffer.copy` returns void but i accidently write `new = buffer.copy()`.
+- Fixes : in `.copy` the function `buffer.copy` returns void but i accidently write `new = buffer.copy()`.
 
 ----
 
 ## Rbxts Version
-- Same as Luau more generic functions
-- Finish custom readers
 - Finish serialization with schema and schemaless
 - Test & Benchmark

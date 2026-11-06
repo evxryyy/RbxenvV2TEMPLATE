@@ -156,6 +156,19 @@ function readArray<T extends unknown & Array<unknown>>(
     return $tuple(source,sourceOffset)
 }
 
+function readStruct(
+    component: Component,
+    struct: StructSchema,
+    offset: number,
+) : LuaTuple<[Record<string,defined>,number]> {
+    const data = Resolver.resolveStruct(struct,(targetType) => {
+        const [element,elementOffset] = component.readAs(targetType,offset)
+        offset = elementOffset
+        return element
+    })
+    return $tuple(data,offset)
+}
+
 export abstract class Constructor {
 
     /**
@@ -2363,8 +2376,8 @@ class Component {
             return this
         }
         // Fallback to literal string types (i.e. "I8" etc...)
-        let rbxType = Extensions.bitstreamTypesToLiteralTypes(writeType as BitstreamTypesName)
-        assert(typeOf(value) === rbxType,`Type-missmatch: expected to be a ${typeOf(rbxType)} but got : ${typeOf(value)}`);
+        //let rbxType = Extensions.bitstreamTypesToLiteralTypes(writeType as BitstreamTypesName)
+        //assert(typeOf(value) === rbxType,`Type-missmatch: expected to be a ${typeOf(rbxType)} but got : ${typeOf(value)}`);
         return (this[`write${writeType as BitstreamTypesName}` as keyof unknown] as WriterIndexCallback)(value)
     }
 
@@ -3606,11 +3619,11 @@ class Component {
     * @latest modification : v4.0
     * @since v1.7
     */
-    public readEnum(offset? : number) {
+    public readEnum<E extends EnumItem>(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.readValue(() => {
             let id = readu16(this.buffer,offset)
-            return Constants.EnumItemList[id]
+            return Constants.EnumItemList[id] as E
         },{
             buffer: this.buffer,
             offset: offset,
@@ -4293,7 +4306,6 @@ class Component {
     //#region "[Reader] Custom Types"
 
     /*
-    * // BEING REWRITTEN //
     * Read any target type from the buffer.
     *
     * @Generics<T extends Enumeration.BitstreamTypes | unknown[]>
@@ -4326,14 +4338,20 @@ class Component {
                     break;
                 }
                 else if(typeName === "Struct") {
-                    // TODO: struct 
+                    const [newSource,newOffset] = readStruct(this,(_tempReadType as StructSchema),offset)
+                    value = newSource
+                    offset = newOffset
+                    break;
                 }
                 else {
                     const extra = _tempReadType.Length || _tempReadType.Option
                     if(typeOf(extra) !== "number") {
                         _tempReadType.Type = (_tempReadType.Type + extra) as BitstreamTypesName
+                        value = (this[`read${_tempReadType.Type}` as keyof unknown] as ReaderIndexCallback<unknown>)(offset,extra)
                     }
-                    value = (this[`read${_tempReadType.Type}` as keyof unknown] as ReaderIndexCallback<unknown>)(offset,extra)
+                    else if(typeIs(extra,"number")) {
+                        value = this.readString((extra),offset)
+                    }
                     offset += Resolver.resolveBytesNeeded(readType as BitstreamTypes,value)
                 }
                 break;
@@ -4346,12 +4364,10 @@ class Component {
     }
 
     /*
-    * // BEING REWRITTEN //
-    *
     * Read an array from the buffer.
     *
     * @Parameters:
-    * - types : Enumeration.BitstreamTypes[]
+    * - types : BitstreamTypes[]
     * - offset? : number
     * 
     * @Returns : unknown[]
@@ -4362,17 +4378,16 @@ class Component {
     public readArray(
         types : BitstreamTypes[],
         offset? : number
-    ) {
-
+    ) : unknown[] {
+        return readArray(this,types,[],offset)[0]
     }
 
     /*
-    * // BEING REWRITTEN //
     *
     * Read a struct from the buffer.
     * 
     * @Parameters:
-    * - schema : Enumeration.StructSchema
+    * - schema : StructSchema
     * - offset? : number
     * 
     * @Returns : Record<string,defined>
@@ -4384,7 +4399,7 @@ class Component {
         schema : StructSchema,
         offset? : number
     ) {
-
+        return readStruct(this,schema,offset)[0]
     }
 
     //#endregion
@@ -4467,7 +4482,7 @@ class Component {
     * @since v2.6
     */
     public compress(algorithm : Enum.CompressionAlgorithm,compressLevel? : number) {
-        compressLevel = compressLevel | 1
+        compressLevel = compressLevel || 1
         return EncodingService.CompressBuffer(this.buffer,algorithm,clamp(compressLevel,-7,22))
     }
 
