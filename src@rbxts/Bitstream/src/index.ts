@@ -4063,7 +4063,7 @@ class Component {
             this.ensureReadable(offset,4)
             let t = readf32(this.buffer,offset)
             let value = this.readColor3(offset + 4)
-            colorSequence[i] = new ColorSequenceKeypoint(t,value)
+            colorSequence[colorSequence.size()] = new ColorSequenceKeypoint(t,value)
             offset += 7
         }
         return new ColorSequence(colorSequence)
@@ -4086,7 +4086,7 @@ class Component {
             this.ensureReadable(offset,4)
             let t = readf32(this.buffer,offset)
             let value = this.readColor3F24(offset + 4)
-            colorSequence[i] = new ColorSequenceKeypoint(t,value)
+            colorSequence[colorSequence.size()] = new ColorSequenceKeypoint(t,value)
             offset += 13
         }
         return new ColorSequence(colorSequence)
@@ -4109,7 +4109,7 @@ class Component {
             this.ensureReadable(offset,4)
             let t = readf32(this.buffer,offset)
             let value = this.readColor3F32(offset + 4)
-            colorSequence[i] = new ColorSequenceKeypoint(t,value)
+            colorSequence[colorSequence.size()] = new ColorSequenceKeypoint(t,value)
             offset += 16
         }
         return new ColorSequence(colorSequence)
@@ -4132,7 +4132,7 @@ class Component {
             this.ensureReadable(offset,4)
             let t = readf32(this.buffer,offset)
             let value = this.readColor3F64(offset + 4)
-            colorSequence[i] = new ColorSequenceKeypoint(t,value)
+            colorSequence[colorSequence.size()] = new ColorSequenceKeypoint(t,value)
             offset += 28
         }
         return new ColorSequence(colorSequence)
@@ -4253,7 +4253,7 @@ class Component {
             let t = readf32(this.buffer,offset)
             let value = readf32(this.buffer,offset + 4)
             let envelope = readf32(this.buffer,offset + 8)
-            numberSequence[i] = new NumberSequenceKeypoint(t,value,envelope)
+            numberSequence[numberSequence.size()] = new NumberSequenceKeypoint(t,value,envelope)
             offset += 12
         }
         return new NumberSequence(numberSequence)
@@ -4277,7 +4277,7 @@ class Component {
             let t = readf32(this.buffer,offset)
             let value = Extensions.decodeF16(this.buffer,offset + 4)
             let envelope = readf32(this.buffer,offset + 6)
-            numberSequence[i] = new NumberSequenceKeypoint(t,value,envelope)
+            numberSequence[numberSequence.size()] = new NumberSequenceKeypoint(t,value,envelope)
             offset += 10
         }
         return new NumberSequence(numberSequence)
@@ -4301,7 +4301,7 @@ class Component {
             let t = readf32(this.buffer,offset)
             let [value] = readNfp24(this.buffer,1,offset + 4)
             let envelope = readf32(this.buffer,offset + 7)
-            numberSequence[i] = new NumberSequenceKeypoint(t,value,envelope)
+            numberSequence[numberSequence.size()] = new NumberSequenceKeypoint(t,value,envelope)
             offset += 11
         }
         return new NumberSequence(numberSequence)
@@ -4325,7 +4325,7 @@ class Component {
             let t = readf32(this.buffer,offset)
             let value = readf64(this.buffer,offset + 4)
             let envelope = readf32(this.buffer,offset + 12)
-            numberSequence[i] = new NumberSequenceKeypoint(t,value,envelope)
+            numberSequence[numberSequence.size()] = new NumberSequenceKeypoint(t,value,envelope)
             offset += 16
         }
         return new NumberSequence(numberSequence)
