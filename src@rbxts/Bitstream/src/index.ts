@@ -232,7 +232,8 @@ export abstract class Constructor {
     static serializeAll(schemas : SerializationSchema[],values : Record<string, unknown>[],compressAll? : boolean) : buffer[] {
         const serializedBuffers : buffer[] = []
         for(const i of $range(1,schemas.size())) {
-            serializedBuffers[i] = this.serialize(schemas[i],values[i],compressAll)
+            const index = serializedBuffers.size()
+            serializedBuffers[index] = this.serialize(schemas[index],values[index],compressAll)
         }
         return serializedBuffers
     }
@@ -244,7 +245,8 @@ export abstract class Constructor {
     static deserializeAll(serializedBuffers : buffer[],schemas : SerializationSchema[],decompressAll? : boolean) : Record<string, unknown>[] {
         const deserializedBuffers : Record<string, unknown>[] = []
         for(const i of $range(1,serializedBuffers.size())) {
-            deserializedBuffers[i] = this.deserialize(serializedBuffers[i],schemas[i],decompressAll)
+            const index = deserializedBuffers.size()
+            deserializedBuffers[index] = this.deserialize(serializedBuffers[index],schemas[index],decompressAll)
         }
         return deserializedBuffers
     }
