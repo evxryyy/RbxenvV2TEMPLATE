@@ -3,9 +3,6 @@ out/
 include/
 *.rbxl
 *.rbxlx
-*.vscode/
-*.eslintrc
-*.prettierrc
 COMMANDS.md
 *.tgz
 *.tsbuildinfo

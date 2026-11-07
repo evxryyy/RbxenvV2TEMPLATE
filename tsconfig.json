@@ -14,7 +14,7 @@
     "noLib": true,
     "strict": true,
     "moduleDetection": "force",
-    "typeRoots": ["node_modules/@rbxts"]
+    "typeRoots": ["node_modules/@rbxts"], 
   },
   "include": ["src@rbxts/**/*"]
 }

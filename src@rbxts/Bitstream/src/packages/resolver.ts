@@ -1,3 +1,5 @@
+//!native
+
 import * as Enumeration from "./enumeration"
 import { Constants } from "./constants"
 import { Utilities } from "./utilities"

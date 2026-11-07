@@ -164,6 +164,9 @@ export type BitstreamTableType = {
 	Option : string,
 }
 
+export type SerializationSchema = StructSchema["Fields"]
+export type DeserializedData = Record<string,unknown>
+
 //#endregion
 
 export abstract class Enumeration {

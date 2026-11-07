@@ -1,3 +1,5 @@
+//!native
+
 import * as Types from "./typeHelper"
 
 const abs = math.abs; const floor = math.floor; const log = math.log;

@@ -1,21 +1,9 @@
 {
   "name": "rbxenv-v2-template",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "build": "rbxtsc",
-    "watch": "rbxtsc -w",
-    "serve": "rojo serve",
-    "dev": "concurrently \"npm run watch\" \"npm run serve\"",
-    "push": "rbxtsc && git add . && git commit -m"
-  },
-  "devDependencies": {
-    "@rbxts/compiler-types": "^3.0.0-types.0",
-    "@rbxts/types": "^1.0.961",
-    "concurrently": "^8.2.2",
-    "roblox-ts": "^3.0.0",
-    "typescript": "^5.4.0"
-  },
-  "dependencies": {
-    "@rbxts/services": "^1.6.0"
+    "build:bitstream": "cd src@rbxts/Bitstream && npm run build",
+    "pack:bitstream": "cd src@rbxts/Bitstream && npm pack"
   }
 }

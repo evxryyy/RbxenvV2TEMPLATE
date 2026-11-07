@@ -1,3 +1,5 @@
+//!native
+
 import {
     Enumeration,
     BitstreamTypesName,

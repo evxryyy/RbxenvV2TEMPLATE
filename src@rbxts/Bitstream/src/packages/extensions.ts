@@ -1,3 +1,5 @@
+//!native
+
 import * as Types from "./typeHelper"
 import { Enumeration,BitstreamTypesName } from "./enumeration"
 

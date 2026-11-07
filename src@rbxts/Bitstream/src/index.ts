@@ -1,14 +1,16 @@
+//!native
+
 import { EncodingService, HttpService, ReplicatedStorage } from "@rbxts/services";
 
 import * as Types from "./packages/typeHelper"
 import { Utilities } from "./packages/utilities"
-import { 
-    Enumeration, 
+import {
+    Enumeration,
     BitstreamTypes,
-    BitstreamTableType, 
+    BitstreamTableType,
     BitstreamTypesName,
     ArraySchema,
-    StructSchema
+    StructSchema, SerializationSchema, DeserializedData
 } from "./packages/enumeration"
 import { Constants } from "./packages/constants"
 import { Signal } from "./packages/zignal"
@@ -18,7 +20,7 @@ import { Bitflag } from "./packages/bitflag"
 import { VersionController } from "./packages/versionController";
 
 type WriterIndexCallback = (this : Component,value : defined | unknown) => Component
-type ReaderIndexCallback<R> = (this : Component,offset : defined,extra? : unknown) => R
+type ReaderIndexCallback<R> = (this : Component,offset : number,extra? : unknown) => R
 type SignalConnectionCallback = (newValue : number) => void
 type ReaderParameters = {
     buffer : buffer,
@@ -46,6 +48,8 @@ const writei16 = buffer.writei16; const writei32 = buffer.writei32; const writeu
 const writeu16 = buffer.writeu16; const writeu32 = buffer.writeu32; const writef32 = buffer.writef32
 const writef64 = buffer.writef64; const readstring = buffer.readstring; const writestring = buffer.writestring
 const copy = buffer.copy; const fill = buffer.fill
+const writevectorf32x2 = buffer.writevectorf32x2; const writevectorf32x3 = buffer.writevectorf32x3
+const readvectorf32x2 = buffer.readvectorf32x2; const readvectorf32x3 = buffer.readvectorf32x3
 
 // math api
 const huge = math.huge; const modf = math.modf; const floor = math.floor
@@ -127,7 +131,10 @@ function readNfp24(b : buffer,count : number,offset : number) : number[] {
     return fps
 }
 
-
+/**
+ * Reads an array, including nested arrays and elements using the :<count> pattern. 
+ * Returns a LuaTuple<[T, number]> containing the updated source with the decoded elements and the final offset.
+ */
 function readArray<T extends unknown & Array<unknown>>(
     component : Component,
     types : BitstreamTypes[],
@@ -156,6 +163,10 @@ function readArray<T extends unknown & Array<unknown>>(
     return $tuple(source,sourceOffset)
 }
 
+/**
+ * Reads the provided schema (which must be a dictionary), then iterates through its fields using Resolver.resolveStruct to read the values and update the dictionary.
+ * Returns a LuaTuple<[T, number]> containing the updated data with the decoded elements and the final offset.
+ */
 function readStruct(
     component: Component,
     struct: StructSchema,
@@ -178,6 +189,71 @@ export abstract class Constructor {
         return new Component(parameters)
     }
 
+    /**
+     * Serialize a buffer using the provided schema and dictionary. 
+     * The required size is calculated beforehand, and auto-allocation is disabled for this function.
+     */
+    static serialize(schema: SerializationSchema, value: Record<string,unknown>, compressBuffer? : boolean) : buffer {
+        let schema_size = 0;
+        Resolver.iterateStruct({Type : "Struct",Fields : schema},value,(targetType,targetValue) => {
+            schema_size += Resolver.resolveBytesNeeded(targetType,targetValue)
+        })
+        let ser = new Component({
+            UseAutoAllocation: false,
+            Size: schema_size,
+        })
+        Resolver.iterateStruct({Type : "Struct",Fields : schema},value,(targetType,targetValue) => {
+            ser.writeAs(targetType,targetValue)
+        })
+        const buff = compressBuffer ? ser.compress(Enum.CompressionAlgorithm.Zstd) : ser.buffer;
+        ser.destroy()
+        ser = undefined
+        return buff
+    }
+    
+    // Deserialize a buffer using the current schema and return the dictionary containing the exact decoded values.
+    static deserialize(serializedBuffer : buffer, schema : SerializationSchema, decompressBuffer? : boolean) : DeserializedData {
+        let offset = 0
+        let component = new Component({
+            SourceBuffer : decompressBuffer ? this.decompress(serializedBuffer,Enum.CompressionAlgorithm.Zstd) : serializedBuffer,
+            UseAutoAllocation : false,
+        })
+        return Resolver.resolveStruct({Type : "Struct",Fields : schema},(targetType) => {
+            const [element,elementOffset] = component.readAs(targetType,offset)
+            offset = elementOffset
+            return element
+        })
+    }
+
+    /**
+     * Serializes each schema and its corresponding dictionary from the provided lists, one by one. 
+     * Please note that the order is extremely important.
+     */
+    static serializeAll(schemas : SerializationSchema[],values : Record<string, unknown>[],compressAll? : boolean) : buffer[] {
+        const serializedBuffers : buffer[] = []
+        for(const i of $range(1,schemas.size())) {
+            serializedBuffers[i] = this.serialize(schemas[i],values[i],compressAll)
+        }
+        return serializedBuffers
+    }
+
+    /**
+     * Deserializes each buffer using its corresponding schema from the provided lists, one by one. 
+     * Please note that the order is extremely important.
+     */
+    static deserializeAll(serializedBuffers : buffer[],schemas : SerializationSchema[],decompressAll? : boolean) : Record<string, unknown>[] {
+        const deserializedBuffers : Record<string, unknown>[] = []
+        for(const i of $range(1,serializedBuffers.size())) {
+            deserializedBuffers[i] = this.deserialize(serializedBuffers[i],schemas[i],decompressAll)
+        }
+        return deserializedBuffers
+    }
+    
+    // Decompresses a buffer using its specified compression algorithm.
+    static decompress(b : buffer,compressionAlgorithm : Enum.CompressionAlgorithm) { 
+        return EncodingService.DecompressBuffer(b,compressionAlgorithm)
+    }
+    
 }
 
 class Component {
@@ -222,7 +298,11 @@ class Component {
         }
         return true
     }
-    
+
+    /**
+     * Simplified native buffer API calls (e.g. buffer.readu8) by standardizing their parameters into an object containing buffer, offset, and optional bytes and bits. 
+     * Ensures the buffer has enough readable bytes at the given offset for the requested type.
+     */
     private readValue<A extends unknown & Array<unknown>,R>(
         readFunc : ((...args : A) => R) | (() => R),
         readParameters : ReaderParameters,
@@ -886,8 +966,7 @@ class Component {
     public writeVector2float32(value : Vector2) {
         assert(typeOf(value) === "Vector2","First arguments is expected to be a Vector2")
         this.ensureWritable(Constants.REQUIRED_BYTES.Vector2float32)
-        writef32(this.buffer,this.offset,value.X)
-        writef32(this.buffer,this.offset + 4,value.Y)
+        writevectorf32x2(this.buffer,this.offset,vector.create(value.X,value.Y,0))
         this.offset += 8
         this.offsetChanged.Fire(this.offset)
         return this
@@ -989,9 +1068,7 @@ class Component {
         assert(typeOf(value) === "Vector3","First arguments is expected to be a Vector3")
         this.ensureWritable(Constants.REQUIRED_BYTES.Vector3float32)
         let [x,y,z] = [value.X,value.Y,value.Z]
-        writef32(this.buffer,this.offset,x)
-        writef32(this.buffer,this.offset + 4,y)
-        writef32(this.buffer,this.offset + 8,z)
+        writevectorf32x3(this.buffer,this.offset,vector.create(x,y,z))
         this.offset += 12
         this.offsetChanged.Fire(this.offset)
         return this
@@ -1083,9 +1160,7 @@ class Component {
         let pos = value.Position
         let [axis,angle] = value.ToAxisAngle()
         // Position
-        writef32(this.buffer,this.offset,pos.X)
-        writef32(this.buffer,this.offset + 4,pos.Y)
-        writef32(this.buffer,this.offset + 8,pos.Z)
+        writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
         // Quaternion
         let quaternion = Extensions.axisAngleToQuaternion(axis,angle)
         writef32(this.buffer,this.offset + 12,quaternion.x)
@@ -1136,9 +1211,7 @@ class Component {
         this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF32)
         let pos = value.Position
         let [rx,ry,rz] = value.ToEulerAnglesXYZ()
-        writef32(this.buffer,this.offset,pos.X)
-        writef32(this.buffer,this.offset + 4,pos.Y)
-        writef32(this.buffer,this.offset + 8,pos.Z)
+        writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
         writef32(this.buffer,this.offset + 12,rx)
         writef32(this.buffer,this.offset + 16,ry)
         writef32(this.buffer,this.offset + 20,rz)
@@ -1378,10 +1451,8 @@ class Component {
     public writeRectFloat32(value : Rect) {
         assert(typeOf(value) === "Rect","First arguments is expected to be a Rect")
         this.ensureWritable(Constants.REQUIRED_BYTES.RectFloat32)
-        writef32(this.buffer,this.offset,value.Min.X)
-        writef32(this.buffer,this.offset + 4,value.Min.Y)
-        writef32(this.buffer,this.offset + 8,value.Max.X)
-        writef32(this.buffer,this.offset + 12,value.Max.Y)
+        writevectorf32x2(this.buffer,this.offset,vector.create(value.Min.X,value.Min.Y,0))
+        writevectorf32x2(this.buffer,this.offset + 8,vector.create(value.Max.X,value.Max.Y,0))
         this.offset += 16
         this.offsetChanged.Fire(this.offset)
         return this
@@ -1462,9 +1533,7 @@ class Component {
         let pos = cf.Position
         let [axis,angle] = cf.ToAxisAngle()
         // CFrame 
-        writef32(this.buffer,this.offset,pos.X)
-        writef32(this.buffer,this.offset + 4,pos.Y)
-        writef32(this.buffer,this.offset + 8,pos.Z)
+        writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
         let quaternion = Extensions.axisAngleToQuaternion(axis,angle)
         writef32(this.buffer,this.offset + 12,quaternion.x)
         writef32(this.buffer,this.offset + 16,quaternion.y)
@@ -1525,9 +1594,7 @@ class Component {
         let pos = cf.Position
         let [rx,ry,rz] = cf.ToEulerAnglesXYZ()
         // CFrame
-        writef32(this.buffer,this.offset,pos.X)
-        writef32(this.buffer,this.offset + 4,pos.Y)
-        writef32(this.buffer,this.offset + 8,pos.Z)
+        writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
         writef32(this.buffer,this.offset + 12,rx)
         writef32(this.buffer,this.offset + 16,ry)
         writef32(this.buffer,this.offset + 20,rz)
@@ -1690,9 +1757,7 @@ class Component {
         // Time
         writef32(this.buffer,this.offset,value.Time)
         // CFrame
-        writef32(this.buffer,this.offset + 4,pos.X)
-        writef32(this.buffer,this.offset + 8,pos.Y)
-        writef32(this.buffer,this.offset + 12,pos.Z)
+        writevectorf32x3(this.buffer,this.offset + 4,vector.create(pos.X,pos.Y,pos.Z))
         let quaternion = Extensions.axisAngleToQuaternion(axis,angle)
         writef32(this.buffer,this.offset + 16,quaternion.x)
         writef32(this.buffer,this.offset + 20,quaternion.y)
@@ -1774,9 +1839,7 @@ class Component {
         // Time
         writef32(this.buffer,this.offset,value.Time)
         // CFrame
-        writef32(this.buffer,this.offset + 4,pos.X)
-        writef32(this.buffer,this.offset + 8,pos.Y)
-        writef32(this.buffer,this.offset + 12,pos.Z)
+        writevectorf32x3(this.buffer,this.offset + 4,vector.create(pos.X,pos.Y,pos.Z))
         writef32(this.buffer,this.offset + 16,rx)
         writef32(this.buffer,this.offset + 20,ry)
         writef32(this.buffer,this.offset + 24,rz)
@@ -3048,8 +3111,8 @@ class Component {
     public readVector2float32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.readValue(() => {
-            let [x,y] = [readf32(this.buffer,offset),readf32(this.buffer,offset + 4)]
-            return new Vector2(x,y)
+            let vect = readvectorf32x2(this.buffer,offset)
+            return new Vector2(vect.x,vect.y)
         },{
             buffer: this.buffer,
             offset: offset,
@@ -3152,12 +3215,8 @@ class Component {
     public readVector3float32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.readValue(() => {
-            let [x,y,z] = [
-                readf32(this.buffer,offset),
-                readf32(this.buffer,offset + 4),
-                readf32(this.buffer,offset + 8)
-            ]
-            return new Vector3(x,y,z)
+            let vect = readvectorf32x3(this.buffer,offset)
+            return new Vector3(vect.x,vect.y,vect.z)
         },{
             buffer: this.buffer,
             offset: offset,
@@ -3252,11 +3311,7 @@ class Component {
     public readCFrameQuaternion(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.readValue(() => {
-            let pos = {
-                x: readf32(this.buffer,offset),
-                y: readf32(this.buffer,offset + 4),
-                z: readf32(this.buffer,offset + 8)
-            }
+            let pos = readvectorf32x3(this.buffer,offset)
             let quat = {
                 x: readf32(this.buffer,offset + 12),
                 y: readf32(this.buffer,offset + 16),
@@ -3305,17 +3360,13 @@ class Component {
     public readCFrameF32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.readValue(() => {
-            let [px,py,pz] = [
-                readf32(this.buffer,offset),
-                readf32(this.buffer,offset + 4),
-                readf32(this.buffer,offset + 8)
-            ]
+            let vect = readvectorf32x3(this.buffer,offset)
             let [x,y,z] = [
                 readf32(this.buffer,offset + 12),
                 readf32(this.buffer,offset + 16),
                 readf32(this.buffer,offset + 20),                
             ]
-            return CFrame.Angles(x,y,z).add(new Vector3(px,py,pz))
+            return CFrame.Angles(x,y,z).add(new Vector3(vect.x,vect.y,vect.z))
         },{
             buffer: this.buffer,
             offset: offset,
@@ -3568,13 +3619,9 @@ class Component {
     public readRectFloat32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.readValue(() => {
-            let [minX,minY,maxX,maxY] = [
-                readf32(this.buffer,offset),
-                readf32(this.buffer,offset + 4),
-                readf32(this.buffer,offset + 8),
-                readf32(this.buffer,offset + 12)
-            ]
-            return new Rect(minX,minY,maxX,maxY)
+            const min = readvectorf32x2(this.buffer,offset)
+            const max = readvectorf32x2(this.buffer,offset + 8)
+            return new Rect(min.x,min.y,max.x,max.y)
         },{
             buffer: this.buffer,
             offset: offset,
@@ -4623,8 +4670,7 @@ class Component {
     * @latest modification : v4.0
     * @since v1.2
     */
-    public destroy() : asserts this is never {
-        this.disconnectAllSignals()
+    public destroy() : void {
         this.clear()
         setmetatable(this,undefined)
     }
