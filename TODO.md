@@ -14,5 +14,8 @@
 ----
 
 ## Rbxts Version
-- Finish serialization with schema and schemaless
+
+> [!WARNING]
+> The module is now complete. Please expect minor optimizations and refactoring during and after the testing and benchmarking phase.
+
 - Test & Benchmark

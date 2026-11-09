@@ -73,6 +73,7 @@ const floor = math.floor;
 
 const create = buffer.create; const writeu8 = buffer.writeu8;
 const writestring = buffer.writestring; const copy = buffer.copy;
+const bufflen = buffer.len
 
 const readu8 = buffer.readu8; const readstring = buffer.readstring;
 
@@ -115,6 +116,16 @@ export abstract class Bitflag {
         }
     }
 
+    public static fromBuffer(b : buffer,enableAutoAllocation : boolean = true) : BitflagType {
+        const size = bufflen(b)
+        return {
+            buffer : b, 
+            size,
+            offset : size,
+            useAutoAllocation : enableAutoAllocation
+        }
+    }
+    
     /*
     * Writes the type of the given element. 
     * If the element is a string, an additional argument must be provided specifying the string length.
