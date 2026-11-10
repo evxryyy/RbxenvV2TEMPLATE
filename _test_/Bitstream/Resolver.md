@@ -1,8 +1,10 @@
-# Resolver Test & Benchmark
+# Resolver Tests & Benchmarks
 
-## Test-case
+## Test Cases
 
-###  `containNestedArray`
+This section covers the test results for the main `Resolver` functions, including nested structures, schema iteration, and schema resolution.
+
+### `containNestedArray`
 
 `containNestedArray` works correctly with the following argument:
 
@@ -12,38 +14,48 @@
 ]
 ```
 
-To be clear, this function is generally unreliable when used directly. In `iterateArray`, the function receives the inner array directly (i.e., `.Types`, not the original array). In this case, the result is `true`, which is correct.
+However, this function must be called with the expected input structure.
+
+When used inside `iterateArray`, it receives the inner array directly (i.e. `.Types`) rather than the original array schema. In this context, the function correctly returns `true`.
+
+This distinction is important when testing the function independently, as the expected result depends on the structure passed to it.
 
 ---
 
 ### `containNestedStruct`
 
+The following nested structure is correctly detected:
+
 ```ts
 {
-    Type : "Struct",
-    Fields : {
-        Data : {
-            Type : "Struct",
-            Fields : {...}
+    Type: "Struct",
+    Fields: {
+        Data: {
+            Type: "Struct",
+            Fields: {...}
         }
     }
 }
 ```
 
-Same as `containNestedArray` is not generally unreliable when used directly. In `iterateStruct` the function receives the inner struct directly (i.e.,`.Struct`, not the original array), In this case the result is also `true`, which is correct.
+As with `containNestedArray`, the function must receive the expected structure.
 
-Not allowed struct schema example :
+Inside `iterateStruct`, it receives the inner struct directly (i.e. `.Struct`), rather than the original schema. In this context, it correctly returns `true`.
+
+**Unsupported struct schema example:**
 
 ```ts
 {
-    Type : "Struct",
-    Fields : {
-        Data : {
-            Type : "Struct",
-            Fields : {
-                SubData : Type : "Struct",
-                Fields : {
-                    DeepSubData : "Bool1"
+    Type: "Struct",
+    Fields: {
+        Data: {
+            Type: "Struct",
+            Fields: {
+                SubData: {
+                    Type: "Struct",
+                    Fields: {
+                        DeepSubData: "Bool1"
+                    }
                 }
             }
         }
@@ -51,63 +63,82 @@ Not allowed struct schema example :
 }
 ```
 
+This example represents a struct nesting configuration that is not supported.
 
 ---
- 
+
 ### `iterateArray`
 
-The function now works perfectly. I just need to update the documentation, and everything should be resolved.
+The function now works as expected, including the previously problematic cases.
+
+Only the documentation needs to be updated before this part is considered fully resolved.
 
 ---
 
 ### `iterateStruct`
 
-The function works correctly. I'm still using `iterateArray`, but i've found a better solution to the bug instead of creating separate functions.
+The function now works correctly.
+
+It still relies on `iterateArray` for array processing, but I found a better solution to the original bug without introducing separate functions for each case.
 
 ---
 
 ### `resolveArray`
 
-Works perfectly, including with `nested arrays`. The `:<count>` pattern also works as expected.
+Works as expected, including nested arrays.
+
+The `:<count>` syntax is also fully supported and behaves correctly.
 
 ---
 
 ### `resolveStruct`
 
-The function now works correctly, but further testing will be performed.
+The function now works correctly. Additional testing will still be performed to ensure that all edge cases are covered.
 
 ---
 
 ### `resolveArraySchema`
 
-Works correctly without any issues.
+Works correctly without any identified issues.
 
 ---
 
 ### `resolveBytesNeeded`
 
-Tested with all supported types, except `Array` and `Struct`, since these types are not allowed. Everything works as expected.
+Tested with all supported types, except `Array` and `Struct`, since these types are not supported by this function.
+
+All tested cases produce the expected results.
 
 ---
 
 ### `resolveStructSchema`
 
-Works perfectly.
+Works as expected, with no identified issues.
 
 ---
 
 ### `resolveValueType`
 
-No particular issues have been identified with this function.
+No particular issues have been identified during testing.
 
-## Benchmark
+---
 
-## Results for `iterateArray`
+## Benchmarks
 
-Schema used:
+The following benchmarks evaluate the performance of the main `Resolver` operations.
+
+Results are provided for both **100K and 10K iterations** to illustrate execution time under different workloads.
+
+---
+
+### `iterateArray`
+
+#### Nested Array Schema
+
+**Schema used:**
 
 ```ts
-let arraySchema: ArraySchema = {
+const arraySchema: ArraySchema = {
     Type: "Array",
     Types: [
         { Type: "Array", Types: ["Bool1:2"] },
@@ -117,28 +148,30 @@ let arraySchema: ArraySchema = {
 }
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 246ms
-+ Operations per sec: 404914 ops/s
-+ Time/Operation: avg ~ 0.002470ms
++ Total Time:       ~246ms (avg)
++ Operations/sec:   404,914 ops/s
++ Time/Operation:   0.002470ms
 ```
 
-Results for `10K` iterations:
+**Results — 10K iterations:**
 
 ```diff
-+ Total Time: avg ~ 30ms
-+ Operations per sec: 323460 ops/s
-+ Time/Operation: avg ~ 0.003092ms
++ Total Time:       ~30ms (avg)
++ Operations/sec:   323,460 ops/s
++ Time/Operation:   0.003092ms
 ```
 
-Now, let's test a simple schema without nested arrays.
+#### Simple Array Schema
 
-Schema used:
+Now let's test a simpler schema without nested arrays.
+
+**Schema used:**
 
 ```ts
-let arraySchema: ArraySchema = {
+const arraySchema: ArraySchema = {
     Type: "Array",
     Types: [
         "U8:3",
@@ -146,28 +179,32 @@ let arraySchema: ArraySchema = {
 }
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 103ms
-+ Operations/sec: 963836 ops/s
-+ Time/Operation: 0.001038ms
++ Total Time:       ~103ms (avg)
++ Operations/sec:   963,836 ops/s
++ Time/Operation:   0.001038ms
 ```
 
-Results for `10K` iterations:
+**Results — 10K iterations:**
 
 ```diff
-+ Total Time: avg ~ 13ms
-+ Operations/sec: 804868 ops/s
-+ Time/Operation: 0.001242ms
++ Total Time:       ~13ms (avg)
++ Operations/sec:   804,868 ops/s
++ Time/Operation:   0.001242ms
 ```
 
-Overall, the results are good. Unfortunately, the `:<count>` pattern introduces a slight amount of latency. Nevertheless, I still recommend using it to avoid unnecessary repetition.
+#### Performance Notes
+
+Overall, the results are good.
+
+The `:<count>` pattern introduces a small amount of additional processing overhead. Nevertheless, I still recommend using it to avoid unnecessary schema repetition.
 
 For example, the following is the **recommended approach**:
 
 ```ts
-let arraySchema: ArraySchema = {
+const arraySchema: ArraySchema = {
     Type: "Array",
     Types: [
         "U8:3"
@@ -175,10 +212,10 @@ let arraySchema: ArraySchema = {
 }
 ```
 
-This is much better than the following approach:
+This is preferable to manually repeating the same type:
 
 ```ts
-let arraySchema: ArraySchema = {
+const arraySchema: ArraySchema = {
     Type: "Array",
     Types: [
         "U8", "U8", "U8"
@@ -186,16 +223,20 @@ let arraySchema: ArraySchema = {
 }
 ```
 
-No bugs or issues were detected during the `iterateArray` benchmarks.
+The `:<count>` syntax keeps schemas more compact and easier to maintain, while introducing only a small performance overhead.
+
+No bugs or unexpected behavior were detected during these benchmarks.
 
 ---
 
-## Results for `iterateStruct`
+### `iterateStruct`
 
-Schema used:
+#### Nested Struct and Array Schema
+
+**Schema used:**
 
 ```ts
-let structSchema: StructSchema = {
+const structSchema: StructSchema = {
     Type: "Struct",
     Fields: {
         DataSecondary: {
@@ -223,28 +264,30 @@ let structSchema: StructSchema = {
 }
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 237ms
-+ Operations/sec: 421350 ops/s
-+ Time/Operation: 0.002373ms
++ Total Time:       ~237ms (avg)
++ Operations/sec:   421,350 ops/s
++ Time/Operation:   0.002373ms
 ```
 
-Results for `10K` iterations:
+**Results — 10K iterations:**
 
 ```diff
-+ Total Time: avg ~ 46ms
-+ Operations/sec: 213240 ops/s
-+ Time/Operation: 0.004690ms
++ Total Time:       ~46ms (avg)
++ Operations/sec:   213,240 ops/s
++ Time/Operation:   0.004690ms
 ```
 
-Now, let's test a schema without nested structs or nested arrays, containing only direct types.
+#### Simple Struct Schema
 
-Schema used:
+Now let's test a simpler schema without nested structs or nested arrays, containing only direct types.
+
+**Schema used:**
 
 ```ts
-let structSchema: StructSchema = {
+const structSchema: StructSchema = {
     Type: "Struct",
     Fields: {
         DataIds: {
@@ -255,34 +298,42 @@ let structSchema: StructSchema = {
 }
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 140ms
-+ Operations/sec: 713546 ops/s
-+ Time/Operation: 0.001401ms
++ Total Time:       ~140ms (avg)
++ Operations/sec:   713,546 ops/s
++ Time/Operation:   0.001401ms
 ```
 
-Results for `10K` iterations:
+**Results — 10K iterations:**
 
 ```diff
-+ Total Time: avg ~ 18ms
-+ Operations/sec: 543419 ops/s
-+ Time/Operation: 0.001840ms
++ Total Time:       ~18ms (avg)
++ Operations/sec:   543,419 ops/s
++ Time/Operation:   0.001840ms
 ```
 
-Overall, the results are also good. Although it may seem surprising, `iterateStruct` performs better than `iterateArray` at `100K` iterations because `iterateStruct` performs fewer checks.
+#### Performance Notes
 
-No bugs or issues were detected during the `iterateStruct` benchmarks.
+Overall, the results are also good.
+
+Interestingly, `iterateStruct` performs slightly better than `iterateArray` at 100K iterations, despite processing a more complex schema.
+
+This can be explained by the fact that `iterateStruct` performs fewer checks in its current implementation.
+
+No bugs or unexpected behavior were detected during these benchmarks.
 
 ---
 
-## Results for `resolveArray`
+### `resolveArray`
 
-Schema used:
+#### Nested Array Schema
+
+**Schema used:**
 
 ```ts
-let arraySchema: ArraySchema = {
+const arraySchema: ArraySchema = {
     Type: "Array",
     Types: [
         { Type: "Array", Types: ["Bool1"] },
@@ -295,34 +346,40 @@ let arraySchema: ArraySchema = {
 }
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 150ms
-+ Operations/sec: 662489 ops/s
-+ Time/Operation: 0.001509ms
++ Total Time:       ~150ms (avg)
++ Operations/sec:   662,489 ops/s
++ Time/Operation:   0.001509ms
 ```
 
-Results for `10K` iterations:
+**Results — 10K iterations:**
 
 ```diff
-+ Total Time: avg ~ 16ms
-+ Operations/sec: 590759 ops/s
-+ Time/Operation: 0.001693ms
++ Total Time:       ~16ms (avg)
++ Operations/sec:   590,759 ops/s
++ Time/Operation:   0.001693ms
 ```
 
-Excellent results for this function, and no bugs were detected.
+#### Performance Notes
 
-No benchmarks were performed using a simple schema. However, whether running `100K` or `10K` iterations, the total execution time rarely exceeds 20ms.
+Excellent results for this function, especially considering the nested array and the additional `Quaternion` option.
+
+No bugs or unexpected behavior were detected during testing.
+
+No separate benchmark was performed with a simple schema. However, regardless of whether 100K or 10K iterations are used, execution time rarely exceeds 20ms.
 
 ---
 
-## Results for `resolveStruct`
+### `resolveStruct`
 
-Schema used:
+#### Nested Struct and Array Schema
+
+**Schema used:**
 
 ```ts
-let structSchema: StructSchema = {
+const structSchema: StructSchema = {
     Type: "Struct",
     Fields: {
         DataSecondary: {
@@ -350,29 +407,35 @@ let structSchema: StructSchema = {
 }
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 353ms
-+ Operations/sec: 282766 ops/s
-+ Time/Operation: 0.003536ms
++ Total Time:       ~353ms (avg)
++ Operations/sec:   282,766 ops/s
++ Time/Operation:   0.003536ms
 ```
 
-Results for `10K` iterations:
+**Results — 10K iterations:**
 
 ```diff
-+ Total Time: avg ~ 58ms
-+ Operations/sec: 170969 ops/s
-+ Time/Operation: 0.005849ms
++ Total Time:       ~58ms (avg)
++ Operations/sec:   170,969 ops/s
++ Time/Operation:   0.005849ms
 ```
 
-Overall, the results are average when dealing with large schemas.
+#### Performance Notes
+
+Overall, the results are moderate when processing larger and more complex schemas.
+
+The additional overhead is expected due to nested structures, array processing, and the increased number of fields that need to be resolved.
 
 ---
 
-## Results for `resolveArraySchema`
+### `resolveArraySchema`
 
-Input array used:
+This benchmark evaluates schemaless array resolution using a mixed collection of values.
+
+**Input array:**
 
 ```ts
 [
@@ -383,29 +446,37 @@ Input array used:
 ]
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 551ms
-+ Operations/sec: 181268 ops/s
-+ Time/Operation: 0.005517ms
++ Total Time:       ~551ms (avg)
++ Operations/sec:   181,268 ops/s
++ Time/Operation:   0.005517ms
 ```
 
-Results for `10K` iterations:
+**Results — 10K iterations:**
 
 ```diff
-+ Total Time: avg ~ 121ms
-+ Operations/sec: 82618 ops/s
-+ Time/Operation: 0.012104ms
++ Total Time:       ~121ms (avg)
++ Operations/sec:   82,618 ops/s
++ Time/Operation:   0.012104ms
 ```
 
-Good results for a schemaless function. Types such as `CFrame`, or other types with additional options, can be relatively expensive to process, but the overhead remains reasonable.
+#### Performance Notes
+
+Good results for a schemaless resolution function.
+
+Some types, such as `CFrame`, or other types requiring additional options and processing, can introduce more overhead.
+
+Nevertheless, the overall execution time remains reasonable considering that the function needs to inspect and resolve values dynamically without a predefined schema.
 
 ---
 
-## Results for `resolveStructSchema`
+### `resolveStructSchema`
 
-Input dictionary used:
+This benchmark evaluates schemaless struct resolution using a nested dictionary.
+
+**Input dictionary:**
 
 ```ts
 {
@@ -416,27 +487,29 @@ Input dictionary used:
 }
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 475ms
-+ Operations/sec: 210087 ops/s
-+ Time/Operation: 0.004760ms
++ Total Time:       ~475ms (avg)
++ Operations/sec:   210,087 ops/s
++ Time/Operation:   0.004760ms
 ```
 
-Results for `10K` iterations:
+**Results — 10K iterations:**
 
 ```diff
-+ Total Time: avg ~ 96ms
-+ Operations/sec: 103098 ops/s
-+ Time/Operation: 0.009699ms
++ Total Time:       ~96ms (avg)
++ Operations/sec:   103,098 ops/s
++ Time/Operation:   0.009699ms
 ```
 
-Results are very good for schemaless functions.
+#### Performance Notes
+
+Very good results for a schemaless resolution function, especially considering the nested dictionary and dynamic type resolution.
 
 ---
 
-## Other functions
+## Other Functions
 
 The following functions will not be benchmarked:
 
@@ -445,4 +518,22 @@ The following functions will not be benchmarked:
 - `containNestedArray`
 - `containNestedStruct`
 
-These functions execute very quickly, so I consider benchmarking them unnecessary. Demonstrating that each function takes less than approximately 15ms would not provide particularly useful insights.
+These functions execute quickly enough that benchmarking them would provide limited additional insight.
+
+Their execution time is generally below approximately 15ms, making them less relevant for a performance comparison at this stage.
+
+---
+
+## Summary
+
+The current `Resolver` implementation performs well across both schema-based and schemaless operations.
+
+The benchmarks highlight a few key points:
+
+- Nested arrays and structs introduce additional processing overhead, as expected.
+- The `:<count>` syntax introduces a small cost but remains the recommended approach for cleaner and more maintainable schemas.
+- `iterateArray` and `iterateStruct` show good performance, even with nested structures.
+- `resolveArray` and `resolveStruct` handle complex schemas with reasonable execution times.
+- Schemaless resolution introduces additional overhead because values must be inspected and resolved dynamically.
+
+Overall, the tested functions behave as expected, with no remaining benchmark-related issues identified.

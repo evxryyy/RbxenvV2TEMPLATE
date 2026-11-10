@@ -1,68 +1,82 @@
-# Bitflag Test & Benchmark
+# Bitflag Tests & Benchmarks
 
-## Test-case
+## Test Cases
 
-`Bitflag` is now fully functional. I've tested everything, and it all works as expected.
+`Bitflag` is now fully implemented and functional. All test cases have been executed successfully, with the expected results.
 
-## Benchmark
+---
 
-## Results for `initBufferFlag`
+## Benchmarks
 
-Code used for testing:
+This section provides an overview of the performance of the main `Bitflag` operations, including buffer initialization, flag manipulation, and schemaless serialization.
+
+All benchmarks use **100,000 iterations** to evaluate execution time and throughput under repeated workloads.
+
+### `initBufferFlag`
+
+The first benchmark evaluates the initialization cost of `initBufferFlag` with different buffer sizes.
+
+**Empty Buffer (0 bytes)**
+
+**Benchmark setup:**
 
 ```ts
-let result = Benchmark.executeFunction({
+const result = Benchmark.executeFunction({
     func: (i: number) => {
-        let _ = Bitflag.initBufferFlag(0)
+        const _ = Bitflag.initBufferFlag(0)
     },
     iterations: 100_000,
     bytesPerOp: 0
 })
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 14ms
-+ Operations/sec: 6799206 ops/s
-+ Time/Operation: 0.000147ms
++ Total Time:       ~14ms (avg)
++ Operations/sec:   6,799,206 ops/s
++ Time/Operation:   0.000147ms
 ```
 
-Now, let's increase the buffer size significantly.
+**Larger Buffer (256 bytes)**
 
-Code used:
+To evaluate how initialization scales with buffer size, let's increase the allocation to 256 bytes.
+
+**Benchmark setup:**
 
 ```ts
-let result = Benchmark.executeFunction({
+const result = Benchmark.executeFunction({
     func: (i: number) => {
-        let _ = Bitflag.initBufferFlag(256)
+        const _ = Bitflag.initBufferFlag(256)
     },
     iterations: 100_000,
     bytesPerOp: 256
 })
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 32ms
-+ Operations/sec: 3041159 ops/s
-+ Time/Operation: 0.000329ms
-+ Throughput: 742.47MB/s
++ Total Time:       ~32ms (avg)
++ Operations/sec:   3,041,159 ops/s
++ Time/Operation:   0.000329ms
++ Throughput:       742.47 MB/s
 ```
 
-These are normal results for a function that simply returns a dictionary containing the required values.
+These results are expected for an initialization function that creates and returns a dictionary containing the required buffer metadata. The additional allocation cost is reflected in the larger-buffer benchmark.
 
 ---
 
-## Results for `writeFlag`
+### `writeFlag`
 
-Code used:
+This benchmark measures the cost of writing a flag into an initialized buffer.
+
+**Benchmark setup:**
 
 ```ts
-let result = Benchmark.executeFunction({
+const result = Benchmark.executeFunction({
     func: (i: number) => {
-        let _ = Bitflag.initBufferFlag(1)
+        const _ = Bitflag.initBufferFlag(1)
         Bitflag.writeFlag(_, "U8")
     },
     iterations: 100_000,
@@ -70,31 +84,40 @@ let result = Benchmark.executeFunction({
 })
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 37ms (initBufferFlag + writeFlag)
-+ Operations/sec: 2667108 ops/s
-+ Time/Operation: 0.000375ms
-+ Throughput: 2.54MB/s
++ Total Time:       ~37ms (avg)
++ Operations/sec:   2,667,108 ops/s
++ Time/Operation:   0.000375ms
++ Throughput:       2.54 MB/s
 ```
 
-Excellent results considering that two functions are being executed.
+The benchmark includes both `initBufferFlag` and `writeFlag`. Considering that two operations are executed on every iteration, the results provide a good indication of the low overhead involved in flag initialization and writing.
 
-### `writeMarker`
+#### `writeMarker`
 
-`writeMarker` achieves roughly the same performance metrics.
+`writeMarker` achieves approximately the same performance as `writeFlag`, with similar execution times and throughput.
 
 ---
 
-## Results for `writeStruct`
+### `writeStruct`
 
-Code used:
+Unlike the previous operations, `writeStruct` is designed specifically for **schemaless serialization**.
+
+The following benchmarks evaluate its performance with different payload sizes and structures.
+
+> [!NOTE]
+> Running `writeStruct` 100,000 times is not representative of a typical application workload. These iterations are used strictly for benchmarking purposes, allowing us to evaluate serialization performance under repeated execution without relying on a dedicated warm-up phase.
+
+#### Larger Payload
+
+**Benchmark setup:**
 
 ```ts
-let result = Benchmark.executeFunction({
+const result = Benchmark.executeFunction({
     func: (i: number) => {
-        let compiled = Bitflag.writeStruct({
+        const compiled = Bitflag.writeStruct({
             structFields: {
                 DataArray: [10, 11, 12, 13, 14, 15],
                 DataName: "DataTestName",
@@ -110,11 +133,18 @@ let result = Benchmark.executeFunction({
 })
 ```
 
-I want to provide some additional context here. This function is designed specifically for **schemaless serialization**, and you would never realistically use it with `100K` iterations in a typical application. These iterations are purely for benchmarking purposes, allowing us to evaluate the performance impact even without a warm-up phase.
+Before looking at the results, there is an important detail regarding the payload size.
 
-The benchmark uses `79` bytes per operation, which is accurate. However, the reason is that the buffer stores more than just the values themselves. It also contains markers, flags, and keys (the names of the entries in the dictionary).
+The benchmark uses **79 bytes per operation**, which accounts for the complete serialized representation, not just the raw values.
 
-For example, the schema generated for the current result looks like this:
+Since `writeStruct` performs schemaless serialization, the resulting buffer also contains additional metadata, including:
+- Markers and flags.
+- Array boundaries.
+- Nested structure boundaries.
+- Dictionary keys (entry names).
+- Serialized values.
+
+For the current payload, the generated schema looks approximately like this:
 
 ```ts
 {
@@ -141,26 +171,29 @@ For example, the schema generated for the current result looks like this:
 }
 ```
 
-The entries are not necessarily in the same order, but that does not matter as long as the result is correct.
+The entries are not necessarily serialized in this exact order. Their ordering does not matter as long as the resulting data can be correctly reconstructed during deserialization.
 
-Results for `100K` iterations with a larger payload:
+**Results — 100K iterations:**
 
 ```diff
-- Total Time: avg ~ 1414ms
-- Operations/sec: 70698 ops/s
-+ Time/Operation: 0.014145ms
-+ Throughput: 5.33MB/s
+- Total Time:       ~1,414ms (avg)
+- Operations/sec:   70,698 ops/s
++ Time/Operation:   0.014145ms
++ Throughput:       5.33 MB/s
 ```
 
-Now, let's look at the results with a smaller payload.
+#### Smaller Payload
 
-Code used:
+Now let's evaluate the same operation with a simpler structure containing fewer fields.
+
+**Benchmark setup:**
 
 ```ts
-let bytesTotal = 31
-let result = Benchmark.executeFunction({
+const bytesTotal = 31
+
+const result = Benchmark.executeFunction({
     func: (i: number) => {
-        let compiled = Bitflag.writeStruct({
+        const compiled = Bitflag.writeStruct({
             structFields: {
                 DataArray: [10, 11, 12, 13, 14, 15],
                 DataName: "DataTestName",
@@ -172,28 +205,40 @@ let result = Benchmark.executeFunction({
 })
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 712ms
-+ Operations/sec: 140283 ops/s
-+ Time/Operation: 0.007128ms
-+ Throughput: 4.15MB/s
++ Total Time:       ~712ms (avg)
++ Operations/sec:   140,283 ops/s
++ Time/Operation:   0.007128ms
++ Throughput:       4.15 MB/s
 ```
+
+As expected, the smaller payload requires less processing time per operation. The difference also highlights the additional overhead introduced by nested structures and their associated metadata.
 
 ---
 
-## Results for `readFlag`
+### `readFlag`
 
-Keep in mind that this benchmark also executes `initBufferFlag` and `writeFlag`. Therefore, at least 30ms of execution time is expected before accounting for `readFlag` itself, which adds approximately another 10–15ms.
+This benchmark measures flag deserialization using `readFlag`.
 
-Code used:
+However, it is important to account for the additional operations executed during each iteration.
+
+The benchmark also calls:
+- `initBufferFlag`
+- `writeFlag`
+- `readFlag`
+
+Based on the previous results, initialization and writing already account for approximately 37ms of execution time. Reading adds further overhead on top of that.
+
+**Benchmark setup:**
 
 ```ts
-let bytesTotal = 1
-let result = Benchmark.executeFunction({
+const bytesTotal = 1
+
+const result = Benchmark.executeFunction({
     func: (i: number) => {
-        let _ = Bitflag.initBufferFlag(1)
+        const _ = Bitflag.initBufferFlag(1)
         Bitflag.writeFlag(_, "U8")
         Bitflag.readFlag(_, 0)
     },
@@ -202,30 +247,37 @@ let result = Benchmark.executeFunction({
 })
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 46ms
-+ Operations/sec: 2168539 ops/s
-+ Time/Operation: 0.000461ms
-+ Throughput: 2.07MB/s
++ Total Time:       ~46ms (avg)
++ Operations/sec:   2,168,539 ops/s
++ Time/Operation:   0.000461ms
++ Throughput:       2.07 MB/s
 ```
 
-Excellent results, even when executing three functions in sequence.
+The total execution time remains relatively low, even though three operations are executed sequentially on every iteration.
 
 ---
 
-## Results for `readStruct`
+### `readStruct`
 
-As with `writeStruct`, this function is designed specifically for schemaless serialization. Refer to the `writeStruct` section for more details about how the data is encoded and why the payload size includes more than the actual values.
+Like `writeStruct`, `readStruct` is designed specifically for schemaless serialization.
 
-Code used:
+Refer to the [`writeStruct`](#writestruct) section for more details about the serialization format, generated metadata, and payload size calculations.
+
+The following benchmarks evaluate deserialization with two different payload sizes.
+
+#### Smaller Payload
+
+**Benchmark setup:**
 
 ```ts
-let bytesTotal = 31
-let result = Benchmark.executeFunction({
+const bytesTotal = 31
+
+const result = Benchmark.executeFunction({
     func: (i: number) => {
-        let _ = Bitflag.readStruct({
+        const _ = Bitflag.readStruct({
             sourceBuffer: Bitflag.writeStruct({
                 structFields: {
                     DataArray: [10, 11, 12, 13, 14, 15],
@@ -240,24 +292,27 @@ let result = Benchmark.executeFunction({
 })
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-+ Total Time: avg ~ 977ms
-+ Operations/sec: 96328 ops/s
-+ Time/Operation: 0.010381ms
-+ Throughput: 2.85MB/s
++ Total Time:       ~977ms (avg)
++ Operations/sec:   96,328 ops/s
++ Time/Operation:   0.010381ms
++ Throughput:       2.85 MB/s
 ```
 
-Now, let's look at the results with a larger payload, using the same data as in the `writeStruct` benchmark.
+#### Larger Payload
 
-Code used:
+Let's now evaluate `readStruct` using the same payload as the larger `writeStruct` benchmark.
+
+**Benchmark setup:**
 
 ```ts
-let bytesTotal = 79
-let result = Benchmark.executeFunction({
+const bytesTotal = 79
+
+const result = Benchmark.executeFunction({
     func: (i: number) => {
-        let _ = Bitflag.readStruct({
+        const _ = Bitflag.readStruct({
             sourceBuffer: Bitflag.writeStruct({
                 structFields: {
                     DataArray: [10, 11, 12, 13, 14, 15],
@@ -276,15 +331,26 @@ let result = Benchmark.executeFunction({
 })
 ```
 
-Results for `100K` iterations:
+**Results — 100K iterations:**
 
 ```diff
-- Total Time: avg ~ 2027.576ms
-- Operations/sec: 49320 ops/s
-+ Time/Operation: 0.020276ms
-+ Throughput: 3.72MB/s
+- Total Time:       ~2,027.576ms (avg)
+- Operations/sec:   49,320 ops/s
++ Time/Operation:   0.020276ms
++ Throughput:       3.72 MB/s
 ```
 
-The execution time is significantly higher, but this is entirely expected given the complexity of the function. The benchmark performs both serialization and deserialization on every iteration, since `writeStruct` is called inside `readStruct`.
+The execution time is significantly higher than in the smaller-payload benchmark. However, this is expected given the additional complexity of the data structure.
 
-To properly understand these results, it is important to consider the context provided in the `writeStruct` benchmark section.
+One important detail is that this benchmark does not measure `readStruct` in isolation. Every iteration performs both serialization and deserialization because `writeStruct` is called directly inside `readStruct`'s benchmark function.
+
+Consequently, the measured execution time includes:
+- Buffer creation and initialization.
+- Schemaless serialization through `writeStruct`.
+- Metadata and marker processing.
+- Deserialization through `readStruct`.
+- Reconstruction of nested arrays and structures.
+
+The results should therefore be interpreted as the combined cost of a complete serialization/deserialization cycle, rather than the isolated performance of `readStruct`.
+
+For a more accurate evaluation of deserialization performance alone, the source buffer should be generated once outside the benchmark loop and reused across all iterations.
