@@ -138,7 +138,7 @@ export abstract class Bitflag {
         switch(flag) {
             case "String":
                 if(source.useAutoAllocation) {
-                    source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,3,true)
+                    source.buffer = Utilities.ensureCapacity(source.buffer,source.offset,2,true)
                 }
                 writeu8(source.buffer,floor(source.offset),Enumeration.BitstreamEnumeration[flag])
                 writeu8(source.buffer,floor(source.offset + 1),args[0] as number)

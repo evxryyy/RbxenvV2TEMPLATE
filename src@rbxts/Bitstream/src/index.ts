@@ -18,7 +18,6 @@ import { Extensions } from "./packages/extensions"
 import { Resolver } from "./packages/resolver"
 import { Bitflag } from "./packages/bitflag"
 import { VersionController } from "./packages/versionController";
-import Zstd = Enum.CompressionAlgorithm.Zstd;
 
 type WriterIndexCallback = (this : Component,value : defined | unknown) => Component
 type ReaderIndexCallback<R> = (this : Component,offset : number,extra? : unknown) => R
@@ -327,8 +326,8 @@ export abstract class Constructor {
         let dataBuffer = component.buffer
         component.destroy(); component = undefined;
         if(compress) {
-            schema = EncodingService.CompressBuffer(schema,Zstd)
-            dataBuffer = EncodingService.CompressBuffer(dataBuffer,Zstd)
+            schema = EncodingService.CompressBuffer(schema,"Zstd")
+            dataBuffer = EncodingService.CompressBuffer(dataBuffer,"Zstd")
         }
         return {Schema: schema,Data: dataBuffer}
     }
@@ -339,6 +338,10 @@ export abstract class Constructor {
      * An optional argument allows decompression if the buffer was previously compressed by `serializeSchemaless`.
      */
     static deserializeSchemaless(params : SerializedSchemalessBuffer,decompress? : boolean) : Record<string,unknown> {
+        if(decompress) { 
+            params.Schema = EncodingService.DecompressBuffer(params.Schema,"Zstd")
+            params.Data = EncodingService.DecompressBuffer(params.Data,"Zstd")
+        }
         const [readableData] = Bitflag.readStruct({
             sourceBuffer : Bitflag.fromBuffer(params.Schema,false),
             sourceOffset : 0
