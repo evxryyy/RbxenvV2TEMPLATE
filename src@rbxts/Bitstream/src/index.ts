@@ -1026,7 +1026,7 @@ class Component {
         assert(typeOf(value) === "table","First arguments is expected to be a table")
         this.ensureWritable(Constants.REQUIRED_BYTES.Bool8)
         value.forEach((element,index) => {
-            writebits(this.buffer,this.offset * 8 + index + 1,1,(element) ? 1 : 0)
+            writebits(this.buffer,this.offset * 8 + 1,1,(element) ? 1 : 0)
         })
         this.offset += 1
         this.offsetChanged.Fire(this.offset)
