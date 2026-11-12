@@ -2159,7 +2159,7 @@ class Component {
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
-        for(let i = 0; i <= value.Keypoints.size(); i++) {
+        for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
             let keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writeu8(this.buffer,this.offset + 4,round(keypoint.Value.R * 255))
@@ -2191,7 +2191,7 @@ class Component {
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
-        for(let i = 0; i <= value.Keypoints.size(); i++) {
+        for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
             let keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writeNfp24(this.buffer,[keypoint.Value.R,keypoint.Value.G,keypoint.Value.B],this.offset + 4)
@@ -2221,7 +2221,7 @@ class Component {
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
-        for(let i = 0; i <= value.Keypoints.size(); i++) {
+        for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
             let keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)        
             writef32(this.buffer,this.offset + 4,keypoint.Value.R)
@@ -2253,7 +2253,7 @@ class Component {
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
-        for(let i = 0; i <= value.Keypoints.size(); i++) {
+        for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
             let keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writef64(this.buffer,this.offset + 4,keypoint.Value.R)
@@ -2376,7 +2376,7 @@ class Component {
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
-        for(let i = 0; i <= value.Keypoints.size(); i++) {
+        for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
             let keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writef32(this.buffer,this.offset + 4,keypoint.Value)
@@ -2407,7 +2407,7 @@ class Component {
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
-        for(let i = 0; i <= value.Keypoints.size(); i++) {
+        for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
             let keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             let [uint16] = Extensions.toFloat16(keypoint.Value)
@@ -2439,7 +2439,7 @@ class Component {
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
-        for(let i = 0; i <= value.Keypoints.size(); i++) {
+        for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
             let keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writeNfp24(this.buffer,[keypoint.Value],this.offset + 4)
@@ -2470,7 +2470,7 @@ class Component {
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
-        for(let i = 0; i <= value.Keypoints.size(); i++) {
+        for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
             let keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writef64(this.buffer,this.offset + 4,keypoint.Value)

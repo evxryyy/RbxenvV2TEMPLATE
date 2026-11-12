@@ -45,6 +45,7 @@ export type BitstreamTypesName =
 	| "Region3CFrameF24"
 	| "Region3CFrameF32"
 	| "Region3Quantized"
+	| "Region3int16"
 	| "RotationCurveKey"
 	| "RotationCurveKeyQuaternion"
 	| "RotationCurveKeyCFrameF24"
@@ -180,7 +181,7 @@ export abstract class Enumeration {
 		I40: 0x04,
 		I48: 0x05,
 		I54: 0x06,
-		
+
 		U1: 0x07,
 		U8: 0x08,
 		U16: 0x09,
@@ -269,7 +270,11 @@ export abstract class Enumeration {
 		Instance: 0x4B,
 
 		Array: 0x4C,
-		Struct: 0x4D
+		Struct: 0x4D,
+
+		// New types or missing types go on the bottom
+
+		Region3int16: 0x4E,
 	}
 
 	// Given the specified number n, searches the list for the exact corresponding type (e.g., 1 → I8).
