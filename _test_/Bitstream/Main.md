@@ -826,6 +826,8 @@ const WRITTEN_DATA_LIST = [
 // List containing options for types like FloatCurveKey, RotationCurveKey etc..
 const OPTION_DATA_LIST = ["F24","Quaternion"]
 
+const VALID_PREFIX_PART_REGEX = ["RotationCurveKey","ColorSequence","FloatCurveKey","NumberSequence"]
+
 function runTest<A extends unknown & Array<unknown>,R extends unknown>(
     action : ((...args : A) => R) | (() => R),
     params : IBenchmark<A,R>,
@@ -874,6 +876,15 @@ function componentInitWriteTest<A extends unknown & Array<unknown>>(
     },benchmarkData,...args)
 }
 
+function getPrefixPartRegex(name : BitstreamTypesName) : string | undefined {
+    let result : string | undefined;
+    for(const prefix of VALID_PREFIX_PART_REGEX) {
+        result = string.match(name,`^(${prefix})`)[0] as string
+        if(result) break;
+    }
+    return result
+}
+
 let component = Bitstream.Constructor.init({Size : 7 * 100_000, UseAutoAllocation : false})
 let index = 0
 let optionIndex = 0
@@ -881,7 +892,11 @@ let optionIndex = 0
 for(const name of FUNCTION_NAME_LIST) {
     const fullName = FUNCTION_PREFIX + name
     const func = component[fullName as keyof typeof component] as (...args : unknown[]) => unknown
-    const getBytesNeededKey = Constants.REQUIRED_BYTES[name as keyof unknown] as number | ((...args : unknown[]) => number)
+    let getBytesNeededKey = Constants.REQUIRED_BYTES[name as keyof unknown] as number | ((...args : unknown[]) => number)
+    const hasPrefixPart = getPrefixPartRegex(name as BitstreamTypesName)
+    if(typeOf(getBytesNeededKey) === "nil" && typeIs(hasPrefixPart,"string")) {
+        getBytesNeededKey = Constants.REQUIRED_BYTES[hasPrefixPart as keyof unknown] as number | ((...args : unknown[]) => number)
+    }
     let bytesNeeded = 0
     if(typeIs(getBytesNeededKey,"function")) {
         bytesNeeded = getBytesNeededKey(WRITTEN_DATA_LIST[index],OPTION_DATA_LIST[optionIndex])
