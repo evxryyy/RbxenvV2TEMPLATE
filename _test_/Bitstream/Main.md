@@ -40,6 +40,19 @@ Each data type is tested using two scenarios:
 
 All benchmarks currently use 100,000 iterations.
 
+
+> [!IMPORTANT]
+>
+> The following types cannot be benchmarked because Roblox has not yet implemented `writevectorf32x2` and `writevectorf32x3`.
+>
+> List of types that cannot be benchmarked:
+> ___
+> CFrameQuaternion
+> ___
+> Region3Quaternion
+> ___
+> RotationCurveKeyQuaternion
+
 ### Signed Integer (I54)
 
 **Input:** `-2,000,000`
