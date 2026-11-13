@@ -15,6 +15,10 @@
 
 ## Rbxts Version
 
+- Rewrite all readers for significant performance improvements by removing unnecessary abstractions.
+- Add an option to disable ensureWritable and ensureReadable.
+- Add a buffer soft-reset function (offset = 0, buffer size = 0).
+
 > [!WARNING]
 > The module is now complete. Please expect minor optimizations and refactoring during and after the testing and benchmarking phase.
  
