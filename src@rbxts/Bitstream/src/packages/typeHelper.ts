@@ -22,7 +22,8 @@ export type ConstructorConfiguration = {
     UseAutoAllocation : boolean,
 	Size? : number,
 	MaximumAllowedSize? : number,
-	SourceBuffer? : buffer
+	SourceBuffer? : buffer,
+	EnableSafeVerificationMode? : boolean,
 }
 
 /*

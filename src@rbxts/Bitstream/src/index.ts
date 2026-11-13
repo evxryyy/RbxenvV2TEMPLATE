@@ -1,6 +1,6 @@
 //!native
 
-import { EncodingService, HttpService, ReplicatedStorage } from "@rbxts/services";
+import { EncodingService } from "@rbxts/services";
 
 import * as Types from "./packages/typeHelper"
 import { Utilities } from "./packages/utilities"
@@ -253,6 +253,7 @@ export abstract class Constructor {
         let ser = new Component({
             UseAutoAllocation: false,
             Size: schema_size,
+            EnableSafeVerificationMode : false,
         })
         Resolver.iterateStruct({Type : "Struct",Fields : schema},value,(targetType,targetValue) => {
             ser.writeAs(targetType,targetValue)
@@ -269,6 +270,7 @@ export abstract class Constructor {
         let component = new Component({
             SourceBuffer : decompressBuffer ? this.decompress(serializedBuffer,Enum.CompressionAlgorithm.Zstd) : serializedBuffer,
             UseAutoAllocation : false,
+            EnableSafeVerificationMode : false,
         })
         return Resolver.resolveStruct({Type : "Struct",Fields : schema},(targetType) => {
             const [element,elementOffset] = component.readAs(targetType,offset)
@@ -318,6 +320,7 @@ export abstract class Constructor {
         let component = new Component({
             Size: 256,
             UseAutoAllocation: true,
+            EnableSafeVerificationMode : true,
         })
         writeBitflagData(component,formatedData,data)
         let schema = create(totalBytes)
@@ -349,6 +352,7 @@ export abstract class Constructor {
         const component = new Component({
             SourceBuffer : params.Data,
             UseAutoAllocation : false,
+            EnableSafeVerificationMode : false,
         })
         const [deserializedData,_] = readBitflagData(component,readableData,0)
         return deserializedData
@@ -365,10 +369,11 @@ class Component {
     // Properties //
     public buffer: buffer;
     public offset: number;
-    public useAutoAllocation: boolean;
-    public minimumAutoAllocationSize: number;
-    public instanceBuffer : Instance[];
-    public instanceOffset : number;
+    private useAutoAllocation: boolean;
+    private minimumAutoAllocationSize: number;
+    private instanceBuffer : Instance[];
+    private instanceOffset : number;
+    private enableSafeVerificationMode : boolean;
 
     public readonly offsetChanged = new Signal<[number]>();
     public readonly capacityChangedSignal = new Signal<[number]>();
@@ -432,13 +437,14 @@ class Component {
      * @Returns: Component
      * A newly created Bitstream component object.
      */
-    constructor(parameters : Types.ConstructorConfiguration) {
+    constructor(parameters : Types.ConstructorConfiguration = {Size : 0,UseAutoAllocation : true,EnableSafeVerificationMode : true}) {
         this.buffer = parameters.SourceBuffer || create(parameters.Size || 0)
         this.offset = parameters.SourceBuffer ? bufflen(parameters.SourceBuffer) : 0;
         this.useAutoAllocation = parameters.UseAutoAllocation
         this.minimumAutoAllocationSize = 1
         this.instanceBuffer = []
         this.instanceOffset = 0
+        this.enableSafeVerificationMode = parameters.EnableSafeVerificationMode || false
         return this
     }
 
@@ -2518,7 +2524,6 @@ class Component {
     * @since v2.8
     */
     public writeAs(writeType : BitstreamTypes,value : unknown) {
-        assert(typeOf(writeType) !== "nil","A specific type is required.")
         assert(typeOf(value) !== "nil","A value is required.")
         if(typeOf(writeType) === "table") {
             // Formatted `writeType` to an actual TableType
@@ -2544,8 +2549,6 @@ class Component {
             return this
         }
         // Fallback to literal string types (i.e. "I8" etc...)
-        //let rbxType = Extensions.bitstreamTypesToLiteralTypes(writeType as BitstreamTypesName)
-        //assert(typeOf(value) === rbxType,`Type-missmatch: expected to be a ${typeOf(rbxType)} but got : ${typeOf(value)}`);
         return (this[`write${writeType as BitstreamTypesName}` as keyof unknown] as WriterIndexCallback)(value)
     }
 
@@ -2641,11 +2644,8 @@ class Component {
     */
     public readI8(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(buffer.readi8,{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.I8
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.I8);
+        return readi8(this.buffer,offset)
     }
 
     /*
@@ -2658,11 +2658,8 @@ class Component {
     */
     public readI16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(readi8,{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.I16
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.I16);
+        return readi16(this.buffer,offset)
     }
 
     /*
@@ -2675,21 +2672,14 @@ class Component {
     */
     public readI24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            const bytes = [
-                readu8(this.buffer,offset),
-                readu8(this.buffer,offset + 1),
-                readu8(this.buffer,offset + 2),
-            ]
-            let value = (bytes[0] << 16) | (bytes[1] << 8) | bytes[2]
-            // sign bit set (2^7 in the MSB)
-            if(bytes[0] >= fsbit8) value -= fbit24 // subtract 2^24
-            return value
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.I24
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.I24);
+        const b0 = readu8(this.buffer,offset)
+        let value = (
+            b0 << 16 |
+            readu8(this.buffer,offset + 1) << 8 |
+            readu8(this.buffer,offset + 2)
+        )
+        return (b0 >= fsbit8) ? value -= fbit24 : value // subtract 2^24
     }
 
     /*
@@ -2702,11 +2692,8 @@ class Component {
     */
     public readI32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(readi32,{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.I32
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.I32);
+        return readi32(this.buffer,this.offset)
     }
 
     /*
@@ -2719,22 +2706,13 @@ class Component {
     */
     public readI40(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            const bytes = [
-                readu8(this.buffer,offset),
-                readu8(this.buffer,offset + 1),
-                readu8(this.buffer,offset + 2),
-                readu8(this.buffer,offset + 3),
-                readu8(this.buffer,offset + 4),
-            ]
-            let value = bytes[0] * fbit32 + bytes[1] * fbit24 + bytes[2] * fbit16 + bytes[3] * fbit8 + bytes[4]
-            if(value >= fsbits40) value -= fbit40
-            return value
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.I40
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.I40);
+        let value = readu8(this.buffer,offset) * fbit32 +
+            readu8(this.buffer,offset + 1) * fbit24 +
+            readu8(this.buffer,offset + 2) * fbit16 +
+            readu8(this.buffer,offset + 3) * fbit8 +
+            readu8(this.buffer,offset + 4)
+        return (value >= fsbits40) ? value -= fbit40 : value
     }
 
     /*
@@ -2747,23 +2725,14 @@ class Component {
     */
     public readI48(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue((...args : [number]) => {
-            const bytes = [
-                readu8(this.buffer,offset),
-                readu8(this.buffer,offset + 1),
-                readu8(this.buffer,offset + 2),
-                readu8(this.buffer,offset + 3),
-                readu8(this.buffer,offset + 4),
-                readu8(this.buffer,offset + 5)                
-            ]
-            let value = bytes[0] * fbit40 + bytes[1] * fbit32 + bytes[2] * fbit24 + bytes[3] * fbit16 + bytes[4] * fbit8 + bytes[5]
-            if(value >= fsbits48) value -= fbit48
-            return value
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.I48
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.I48);
+        let value = readu8(this.buffer,offset) * fbit40 +
+            readu8(this.buffer,offset + 1) * fbit32 +
+            readu8(this.buffer,offset + 2) * fbit24 + 
+            readu8(this.buffer,offset + 3) * fbit16 +
+            readu8(this.buffer,offset + 4) * fbit8 +
+            readu8(this.buffer,offset + 5)
+        return (value >= fsbits48) ? value -= fbit48 : value
     }
 
     /*
@@ -2776,25 +2745,15 @@ class Component {
     */
     public readI54(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            const bytes = [
-                readu8(this.buffer,offset),
-                readu8(this.buffer,offset + 1),
-                readu8(this.buffer,offset + 2),
-                readu8(this.buffer,offset + 3),
-                readu8(this.buffer,offset + 4),
-                readu8(this.buffer,offset + 5),
-                readu8(this.buffer,offset + 6)           
-            ]
-            const msb54 = bytes[0] & bm6
-            let value = msb54 * fbit48 + bytes[1] * fbit40 + bytes[2] * fbit32 + bytes[3] * fbit24 + bytes[4] * fbit16 + bytes[5] * fbit8 + bytes[6]
-            if(value >= fsbits54) value -= fbit54
-            return value
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.I54
-        })       
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.I54);
+        let value = (readu8(this.buffer,offset) & bm6) * fbit48 +
+            readu8(this.buffer,offset + 1) * fbit40 +
+            readu8(this.buffer,offset + 2) * fbit32 + 
+            readu8(this.buffer,offset + 3) * fbit24 +
+            readu8(this.buffer,offset + 4) * fbit16 +
+            readu8(this.buffer,offset + 5) * fbit8 +
+            readu8(this.buffer,offset + 6)
+        return (value >= fsbits54) ? value -= fbit54 : value
     }
 
     //#endregion
@@ -2811,11 +2770,7 @@ class Component {
     */
     public readU1(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number * 8) <= this.offset * 8 ? offset : this.offset) as number * 8
-        return this.readValue(readbits,{
-            buffer: this.buffer,
-            offset: offset,
-            bits: Constants.REQUIRED_BYTES.U1
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.U1);
     }
 
     /*
@@ -2828,11 +2783,8 @@ class Component {
     */
     public readU8(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(readu8,{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.U8
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.U8);
+        return readu8(this.buffer,offset)
     }
 
     /*
@@ -2845,11 +2797,8 @@ class Component {
     */    
     public readU16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(readu16,{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.U16
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.U16);
+        return readu16(this.buffer,offset)
     }
 
     /*
@@ -2862,18 +2811,8 @@ class Component {
     */      
     public readU24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            const bytes = [
-                readu8(this.buffer,offset),
-                readu8(this.buffer,offset + 1),
-                readu8(this.buffer,offset + 2)
-            ]
-            return (bytes[0] << 16 | bytes[1] << 8) | bytes[2]
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.U24
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.U24);
+        return (readu8(this.buffer,offset) << 16 | readu8(this.buffer,offset + 1) << 8) | readu8(this.buffer,offset + 2)
     }
 
     /*
@@ -2886,11 +2825,8 @@ class Component {
     */
     public readU32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(readu32,{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.U32
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.U32);
+        return readu32(this.buffer,offset)
     }
 
     /*
@@ -2903,21 +2839,12 @@ class Component {
     */
     public readU40(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            const bytes = [
-                readu8(this.buffer,offset),
-                readu8(this.buffer,offset + 1),
-                readu8(this.buffer,offset + 2),
-                readu8(this.buffer,offset + 3),
-                readu8(this.buffer,offset + 4),
-            ]
-            let value = bytes[0] * fbit32 + bytes[1] * fbit24 + bytes[2] * fbit16 + bytes[3] * fbit8 + bytes[4]
-            return value
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.U40
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.U40);
+        return readu8(this.buffer,offset) * fbit32 +
+            readu8(this.buffer,offset + 1) * fbit24 +
+            readu8(this.buffer,offset + 2) * fbit16 +
+            readu8(this.buffer,offset + 3) * fbit8 +
+            readu8(this.buffer,offset + 4)
     }
 
     /*
@@ -2930,22 +2857,13 @@ class Component {
     */
     public readU48(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => { 
-            const bytes = [
-                readu8(this.buffer,offset),
-                readu8(this.buffer,offset + 1),
-                readu8(this.buffer,offset + 2),
-                readu8(this.buffer,offset + 3),
-                readu8(this.buffer,offset + 4),
-                readu8(this.buffer,offset + 5),
-            ]
-            let value = bytes[0] * fbit40 + bytes[1] * fbit32 + bytes[2] * fbit24 + bytes[3] * fbit16 + bytes[4] * fbit8 + bytes[5]
-            return value
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.U48
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.U48);
+        return readu8(this.buffer,offset) * fbit40 +
+            readu8(this.buffer,offset + 1) * fbit32 +
+            readu8(this.buffer,offset + 2) * fbit24 +
+            readu8(this.buffer,offset + 3) * fbit16 +
+            readu8(this.buffer,offset + 4) * fbit8 +
+            readu8(this.buffer,offset + 5)
     }    
 
     /*
@@ -2958,23 +2876,14 @@ class Component {
     */
     public readU54(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            const bytes = [
-                readu8(this.buffer,offset),
-                readu8(this.buffer,offset + 1),
-                readu8(this.buffer,offset + 2),
-                readu8(this.buffer,offset + 3),
-                readu8(this.buffer,offset + 4),
-                readu8(this.buffer,offset + 5),
-                readu8(this.buffer,offset + 6)
-            ]
-            let value = bytes[0] * fbit48 + bytes[1] * fbit40 + bytes[2] * fbit32 + bytes[3] * fbit24 + bytes[4] * fbit16 + bytes[5] * fbit8 + bytes[6]
-            return value
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.U54
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.U54);
+        return readu8(this.buffer,offset) * fbit48 +
+            readu8(this.buffer,offset + 1) * fbit40 +
+            readu8(this.buffer,offset + 2) * fbit32 + 
+            readu8(this.buffer,offset + 3) * fbit24 +
+            readu8(this.buffer,offset + 4) * fbit16 +
+            readu8(this.buffer,offset + 5) * fbit8 +
+            readu8(this.buffer,offset + 6)
     }
 
     //#endregion
@@ -2990,7 +2899,6 @@ class Component {
     * @since v1.0
     */
     public readString(length : number,offset? : number) {
-        assert(typeOf(length) === "number","First argument must be the length of the string you want to read.")
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         return this.readValue(readstring,{
             buffer: this.buffer,
@@ -4727,7 +4635,8 @@ class Component {
     public copy() {
         let component = Constructor.init({
             Size : bufflen(this.buffer),
-            UseAutoAllocation : this.useAutoAllocation
+            UseAutoAllocation : this.useAutoAllocation,
+            EnableSafeVerificationMode : this.enableSafeVerificationMode
         })
         copy(component.buffer,0,this.buffer,0,bufflen(this.buffer))
         component.offset = this.offset
