@@ -16,7 +16,6 @@
 ## Rbxts Version
 
 - Rewrite all readers for significant performance improvements by removing unnecessary abstractions.
-- Add an option to disable ensureWritable and ensureReadable.
 - Add a buffer soft-reset function (offset = 0, buffer size = 0).
 
 > [!WARNING]
