@@ -107,8 +107,8 @@ const extractStringParts = "^(.-):(.+)$"
 */
 function writeNfp24(b : buffer,fps : number[],offset : number) : void {
     for(let i = 0; i < fps.size(); i++){
-        let fp = fps[i]
-        let encode = Extensions.encodeF24(fp)
+        const fp = fps[i]
+        const encode = Extensions.encodeF24(fp)
         writeu8(b,offset,bit32.extract(encode,16,8))
         writeu8(b,offset + 1,bit32.extract(encode,8,8))
         writeu8(b,offset + 2,bit32.extract(encode,0,8))
@@ -129,7 +129,7 @@ function writeNfp24(b : buffer,fps : number[],offset : number) : void {
 function readNfp24(b : buffer,count : number,offset : number) : number[] {
     let fps : number[] = []
     for(let i = 0; i < count; i++) {
-        let encoded = (readu8(b, offset + 0) << 16) |
+        const encoded = (readu8(b, offset + 0) << 16) |
             (readu8(b, offset + 1) << 8) |
             readu8(b, offset + 2);
         fps[i] = Extensions.decodeF24(encoded)
@@ -258,7 +258,7 @@ export abstract class Constructor {
         Resolver.iterateStruct({Type : "Struct",Fields : schema},value,(targetType,targetValue) => {
             ser.writeAs(targetType,targetValue)
         })
-        const buff = compressBuffer ? ser.compress(Enum.CompressionAlgorithm.Zstd) : ser.buffer;
+        const buff = compressBuffer ? ser.compress() : ser.buffer;
         ser.destroy()
         ser = undefined
         return buff
@@ -268,7 +268,7 @@ export abstract class Constructor {
     static deserialize(serializedBuffer : buffer, schema : SerializationSchema, decompressBuffer? : boolean) : DeserializedData {
         let offset = 0
         let component = new Component({
-            SourceBuffer : decompressBuffer ? this.decompress(serializedBuffer,Enum.CompressionAlgorithm.Zstd) : serializedBuffer,
+            SourceBuffer : decompressBuffer ? this.decompress(serializedBuffer) : serializedBuffer,
             UseAutoAllocation : false,
             EnableSafeVerificationMode : false,
         })
@@ -285,9 +285,10 @@ export abstract class Constructor {
      */
     static serializeAll(schemas : SerializationSchema[],values : Record<string, unknown>[],compressAll? : boolean) : buffer[] {
         const serializedBuffers : buffer[] = []
+        let index = 0
         for(const i of $range(1,schemas.size())) {
-            const index = serializedBuffers.size()
             serializedBuffers[index] = this.serialize(schemas[index],values[index],compressAll)
+            index++;
         }
         return serializedBuffers
     }
@@ -298,9 +299,10 @@ export abstract class Constructor {
      */
     static deserializeAll(serializedBuffers : buffer[],schemas : SerializationSchema[],decompressAll? : boolean) : Record<string, unknown>[] {
         const deserializedBuffers : Record<string, unknown>[] = []
+        let index = 0
         for(const i of $range(1,serializedBuffers.size())) {
-            const index = deserializedBuffers.size()
             deserializedBuffers[index] = this.deserialize(serializedBuffers[index],schemas[index],decompressAll)
+            index++;
         }
         return deserializedBuffers
     }
@@ -359,7 +361,10 @@ export abstract class Constructor {
     }
     
     // Decompresses a buffer using its specified compression algorithm.
-    static decompress(b : buffer,compressionAlgorithm : Enum.CompressionAlgorithm) { 
+    static decompress(
+        b : buffer,
+        compressionAlgorithm : Enum.CompressionAlgorithm = Enum.CompressionAlgorithm.Zstd
+    ) : buffer { 
         return EncodingService.DecompressBuffer(b,compressionAlgorithm)
     }
     
@@ -408,25 +413,6 @@ class Component {
         }
         return true
     }
-
-    /**
-     * Simplified native buffer API calls (e.g. buffer.readu8) by standardizing their parameters into an object containing buffer, offset, and optional bytes and bits. 
-     * Ensures the buffer has enough readable bytes at the given offset for the requested type.
-     */
-    private readValue<A extends unknown & Array<unknown>,R>(
-        readFunc : ((...args : A) => R) | (() => R),
-        readParameters : ReaderParameters,
-    ){
-        this.ensureReadable(readParameters.offset,readParameters.bytes || 1)
-        let args : Parameters<typeof readFunc> = [
-            readParameters.buffer,
-            readParameters.offset,
-            readParameters.bytes || readParameters.bits || 1
-        ] as A
-        return readFunc(...args)
-    }
-    
-    //
 
     /**
      * Construct a new Bitstream-Component with the actual configuration.
@@ -3336,7 +3322,7 @@ class Component {
     */
     public readColor3(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.Color3)
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.Color3);
         return new Color3(
             readu8(this.buffer,offset)/255,
             readu8(this.buffer,offset + 1)/255,
@@ -3354,7 +3340,7 @@ class Component {
     */
     public readColor3F24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.Color3F24)
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.Color3F24);
         const [r,g,b] = readNfp24(this.buffer,3,offset)
         return new Color3(r,g,b)
     }
@@ -3387,7 +3373,7 @@ class Component {
     */
     public readColor3F64(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.Color3F64)
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.Color3F64);
         return new Color3(
             readf64(this.buffer,offset),
             readf64(this.buffer,offset + 8),
@@ -3409,17 +3395,8 @@ class Component {
     */
     public readUDim(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let [scale,uiOffset] = [
-                readf32(this.buffer,offset),
-                readi32(this.buffer,offset + 4)
-            ]
-            return new UDim(scale,uiOffset)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.UDim
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.UDim);
+        return new UDim(readf32(this.buffer,offset),readu32(this.buffer,offset + 4))
     }
 
     /*
@@ -3432,19 +3409,13 @@ class Component {
     */    
     public readUDim2(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let [scaleX,scaleY,uiOffsetX,uiOffsetY] = [
-                readf32(this.buffer,offset),
-                readf32(this.buffer,offset + 8),
-                readi32(this.buffer,offset + 4),
-                readi32(this.buffer,offset + 12)
-            ]
-            return new UDim2(scaleX,uiOffsetX,scaleY,uiOffsetY)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.UDim2
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.UDim2);
+        return new UDim2(
+            readf32(this.buffer,offset),
+            readi32(this.buffer,offset + 4),
+            readf32(this.buffer,offset + 8),
+            readi32(this.buffer,offset + 12)
+        )
     }
 
     //#endregion
@@ -3461,14 +3432,9 @@ class Component {
     */
     public readRectFloat24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let data = readNfp24(this.buffer,4,offset)
-            return new Rect(data[0],data[1],data[2],data[3])
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.RectFloat24
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.RectFloat24);
+        const [minX,minY,maxX,maxY] = readNfp24(this.buffer,4,offset)
+        return new Rect(minX,minY,maxX,maxY)
     }
 
     /*
@@ -3481,15 +3447,10 @@ class Component {
     */
     public readRectFloat32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            const min = readvectorf32x2(this.buffer,offset)
-            const max = readvectorf32x2(this.buffer,offset + 8)
-            return new Rect(min.x,min.y,max.x,max.y)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.RectFloat32
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.RectFloat32);
+        const min = readvectorf32x2(this.buffer,offset)
+        const max = readvectorf32x2(this.buffer,offset + 8)
+        return new Rect(min.x,min.y,max.x,max.y)
     }
 
     /*
@@ -3502,19 +3463,13 @@ class Component {
     */
     public readRect(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let [minX,minY,maxX,maxY] = [
-                readf64(this.buffer,offset),
-                readf64(this.buffer,offset + 8),
-                readf64(this.buffer,offset + 16),
-                readf64(this.buffer,offset + 24)
-            ]            
-            return new Rect(minX,minY,maxX,maxY)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.Rect
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.Rect);
+        return new Rect(
+            readf64(this.buffer,offset),
+            readf64(this.buffer,offset + 8),
+            readf64(this.buffer,offset + 16),
+            readf64(this.buffer,offset + 24)
+        )
     }
 
     //#endregion
@@ -3531,14 +3486,8 @@ class Component {
     */
     public readEnum<E extends EnumItem>(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let id = readu16(this.buffer,offset)
-            return Constants.EnumItemList[id] as E
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.Enum
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.Enum);
+        return Constants.EnumItemList[readu16(this.buffer,offset)] as E
     }
 
     //#endregion
@@ -3555,18 +3504,13 @@ class Component {
     */
     public readRegion3(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let cf = this.readCFrameF64(offset)
-            let size = this.readVector3(offset + 48)
-            let halfSize = size.mul(0.5)
-            let min = cf.Position.sub(halfSize)
-            let max = cf.Position.add(halfSize)
-            return new Region3(min,max)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.Region3
-        })
+        const cf = this.readCFrameF64(offset)
+        const size = this.readVector3(offset + 48)
+        const halfSize = size.mul(0.5)
+        return new Region3(
+            cf.Position.sub(halfSize),
+            cf.Position.add(halfSize)
+        )
     }
 
     /*
@@ -3579,17 +3523,10 @@ class Component {
     */
     public readRegion3int16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let [min,max] = [
-                this.readVector3int16(offset),
-                this.readVector3int16(offset + 6)
-            ]
-            return new Region3int16(min,max)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.Region3int16
-        })
+        return new Region3int16(
+            this.readVector3int16(offset),
+            this.readVector3int16(offset + 6)
+        )
     }
 
     /*
@@ -3602,18 +3539,10 @@ class Component {
     */
     public readRegion3Quaternion(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let cf = this.readCFrameQuaternion(offset)
-            let size = this.readVector3(offset + 28)
-            let halsize = size.mul(0.5)
-            let min = cf.Position.sub(halsize)
-            let max = cf.Position.add(halsize)
-            return new Region3(min,max)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.Region3Quaternion
-        })
+        const cf = this.readCFrameQuaternion(offset)
+        const size = this.readVector3(offset + 28)
+        const halsize = size.mul(0.5)
+        return new Region3(cf.Position.sub(halsize),cf.Position.add(halsize))
     }
 
     /*
@@ -3626,18 +3555,10 @@ class Component {
     */
     public readRegion3CFrameF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let cf = this.readCFrameF24(offset)
-            let size = this.readVector3(offset + 18)
-            let halfSize = size.mul(0.5)
-            let min = cf.Position.sub(halfSize)
-            let max = cf.Position.add(halfSize)
-            return new Region3(min,max)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.Region3CFrameF24
-        })
+        const cf = this.readCFrameF24(offset)
+        const size = this.readVector3(offset + 18)
+        const halfSize = size.mul(0.5)
+        return new Region3(cf.Position.sub(halfSize),cf.Position.add(halfSize))
     }
 
     /*
@@ -3650,18 +3571,10 @@ class Component {
     */
     public readRegion3CFrameF32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let cf = this.readCFrameF32(offset)
-            let size = this.readVector3(offset + 24)
-            let halfSize = size.mul(0.5)
-            let min = cf.Position.sub(halfSize)
-            let max = cf.Position.add(halfSize)
-            return new Region3(min,max)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.Region3CFrameF32
-        })
+        const cf = this.readCFrameF32(offset)
+        const size = this.readVector3(offset + 24)
+        const halfSize = size.mul(0.5)
+        return new Region3(cf.Position.sub(halfSize),cf.Position.add(halfSize))
     }
 
     /*
@@ -3674,18 +3587,10 @@ class Component {
     */
     public readRegion3Quantized(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let cf = this.readCFrameQuantized(offset)
-            let size = this.readVector3(offset + 12)
-            let halfSize = size.mul(0.5)
-            let min = cf.Position.sub(halfSize)
-            let max = cf.Position.add(halfSize)
-            return new Region3(min,max)        
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.Region3Quantized
-        })
+        const cf = this.readCFrameQuantized(offset)
+        const size = this.readVector3(offset + 12)
+        const halfSize = size.mul(0.5)
+        return new Region3(cf.Position.sub(halfSize),cf.Position.add(halfSize))
     }
 
     //#endregion
@@ -3702,13 +3607,13 @@ class Component {
     */
     public readRotationCurveKey(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        this.ensureReadable(offset,4)
-        let t = readf32(this.buffer,offset)
-        let cf = this.readCFrameF64(offset + 4)
-        let enumItem = this.readEnum(offset + 52) as Enum.KeyInterpolationMode
-        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
+        const t = readf32(this.buffer,offset)
+        const cf = this.readCFrameF64(offset + 4)
+        const enumItem = this.readEnum(offset + 52) as Enum.KeyInterpolationMode
+        const rotKey = new RotationCurveKey(t,cf,enumItem)
         if(enumItem === Enum.KeyInterpolationMode.Cubic) {
-            this.ensureReadable(offset + 54,8)
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset + 54,8);
             rotKey.LeftTangent = readf32(this.buffer,offset + 54)
             rotKey.RightTangent = readf32(this.buffer,offset + 58)
         }
@@ -3725,13 +3630,13 @@ class Component {
     */
     public readRotationCurveKeyQuaternion(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        this.ensureReadable(offset,4)
-        let t = readf32(this.buffer,offset)
-        let cf = this.readCFrameQuaternion(offset + 4)
-        let enumItem = this.readEnum(offset + 32) as Enum.KeyInterpolationMode
-        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
+        const t = readf32(this.buffer,offset)
+        const cf = this.readCFrameQuaternion(offset + 4)
+        const enumItem = this.readEnum(offset + 32) as Enum.KeyInterpolationMode
+        const rotKey = new RotationCurveKey(t,cf,enumItem)
         if(enumItem === Enum.KeyInterpolationMode.Cubic) {
-            this.ensureReadable(offset + 34,8)
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset + 34,8);
             rotKey.LeftTangent = readf32(this.buffer,offset + 34)
             rotKey.RightTangent = readf32(this.buffer,offset + 38)                
         }
@@ -3748,13 +3653,13 @@ class Component {
     */
     public readRotationCurveKeyCFrameF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        this.ensureReadable(offset,4)
-        let t = readf32(this.buffer,offset)
-        let cf = this.readCFrameF24(offset + 4)
-        let enumItem = this.readEnum(offset + 22) as Enum.KeyInterpolationMode
-        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
+        const t = readf32(this.buffer,offset)
+        const cf = this.readCFrameF24(offset + 4)
+        const enumItem = this.readEnum(offset + 22) as Enum.KeyInterpolationMode
+        const rotKey = new RotationCurveKey(t,cf,enumItem)
         if(enumItem === Enum.KeyInterpolationMode.Cubic) {
-            this.ensureReadable(offset + 24,8)
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset + 24,8);
             rotKey.LeftTangent = readf32(this.buffer,offset + 24)
             rotKey.RightTangent = readf32(this.buffer,offset + 28)                      
         }
@@ -3771,13 +3676,13 @@ class Component {
     */
     public readRotationCurveKeyCFrameF32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        this.ensureReadable(offset,4)
-        let t = readf32(this.buffer,offset)
-        let cf = this.readCFrameF32(offset + 4)
-        let enumItem = this.readEnum(offset + 28) as Enum.KeyInterpolationMode
-        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
+        const t = readf32(this.buffer,offset)
+        const cf = this.readCFrameF32(offset + 4)
+        const enumItem = this.readEnum(offset + 28) as Enum.KeyInterpolationMode
+        const rotKey = new RotationCurveKey(t,cf,enumItem)
         if(enumItem === Enum.KeyInterpolationMode.Cubic) {
-            this.ensureReadable(offset + 30,8)
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset + 30,8);
             rotKey.LeftTangent = readf32(this.buffer,offset + 30)
             rotKey.RightTangent = readf32(this.buffer,offset + 34)
         }
@@ -3794,13 +3699,13 @@ class Component {
     */
     public readRotationCurveKeyCFrameQuantized(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        this.ensureReadable(offset,4)
-        let t = readf32(this.buffer,offset)
-        let cf = this.readCFrameQuantized(offset + 4)
-        let enumItem = this.readEnum(offset + 16) as Enum.KeyInterpolationMode
-        let rotKey = new RotationCurveKey(t,cf,enumItem)
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
+        const t = readf32(this.buffer,offset)
+        const cf = this.readCFrameQuantized(offset + 4)
+        const enumItem = this.readEnum(offset + 16) as Enum.KeyInterpolationMode
+        const rotKey = new RotationCurveKey(t,cf,enumItem)
         if(enumItem === Enum.KeyInterpolationMode.Cubic) {
-            this.ensureReadable(offset + 18,8)
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset + 18,8);
             rotKey.LeftTangent = readf32(this.buffer,offset + 18)
             rotKey.RightTangent = readf32(this.buffer,offset + 22)                
         }
@@ -3821,13 +3726,13 @@ class Component {
     */
     public readFloatCurveKey(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        this.ensureReadable(offset,12)
-        let t = readf32(this.buffer,offset)
-        let value = readf64(this.buffer,offset + 4)
-        let enumItem = this.readEnum(offset + 12) as Enum.KeyInterpolationMode
-        let floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,12);
+        const t = readf32(this.buffer,offset)
+        const value = readf64(this.buffer,offset + 4)
+        const enumItem = this.readEnum(offset + 12) as Enum.KeyInterpolationMode
+        const floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
         if(enumItem === Enum.KeyInterpolationMode.Cubic) {
-            this.ensureReadable(offset + 14,8)
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset + 14,8);
             floatKey.LeftTangent = readf32(this.buffer,offset + 14)
             floatKey.RightTangent = readf32(this.buffer,offset + 18)
         }
@@ -3844,13 +3749,13 @@ class Component {
     */
     public readFloatCurveKeyF32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        this.ensureReadable(offset,8)
-        let t = readf32(this.buffer,offset)
-        let value = readf32(this.buffer,offset + 4)
-        let enumItem = this.readEnum(offset + 8) as Enum.KeyInterpolationMode
-        let floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,8);
+        const t = readf32(this.buffer,offset)
+        const value = readf32(this.buffer,offset + 4)
+        const enumItem = this.readEnum(offset + 8) as Enum.KeyInterpolationMode
+        const floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
         if(enumItem === Enum.KeyInterpolationMode.Cubic) {
-            this.ensureReadable(offset + 10,8)
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset + 10,8);
             floatKey.LeftTangent = readf32(this.buffer,offset + 10)
             floatKey.RightTangent = readf32(this.buffer,offset + 14)            
         }
@@ -3867,13 +3772,13 @@ class Component {
     */
     public readFloatCurveKeyF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        this.ensureReadable(offset,7)
-        let t = readf32(this.buffer,offset)
-        let [value] = readNfp24(this.buffer,1,offset)
-        let enumItem = this.readEnum(offset + 7) as Enum.KeyInterpolationMode
-        let floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,7);
+        const t = readf32(this.buffer,offset)
+        const [value] = readNfp24(this.buffer,1,offset)
+        const enumItem = this.readEnum(offset + 7) as Enum.KeyInterpolationMode
+        const floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
         if(enumItem === Enum.KeyInterpolationMode.Cubic) {
-            this.ensureReadable(offset + 9,8)
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset + 9,4);
             floatKey.LeftTangent = readf32(this.buffer,offset + 9)
             floatKey.RightTangent = readf32(this.buffer,offset + 13)              
         }
@@ -3890,13 +3795,13 @@ class Component {
     */
     public readFloatCurveKeyF16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        this.ensureReadable(offset,6)
-        let t = readf32(this.buffer,offset)
-        let value = Extensions.decodeF16(this.buffer,offset + 4)
-        let enumItem = this.readEnum(offset + 6) as Enum.KeyInterpolationMode
-        let floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,6);
+        const t = readf32(this.buffer,offset)
+        const value = Extensions.decodeF16(this.buffer,offset + 4)
+        const enumItem = this.readEnum(offset + 6) as Enum.KeyInterpolationMode
+        const floatKey = new FloatCurveKey(t,value,enumItem) as EditableFloatCurveKey
         if(enumItem === Enum.KeyInterpolationMode.Cubic) {
-            this.ensureReadable(offset + 8,8)
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset + 8,8);
             floatKey.LeftTangent = readf32(this.buffer,offset + 8)
             floatKey.RightTangent = readf32(this.buffer,offset + 12)                   
         }
@@ -3917,15 +3822,16 @@ class Component {
     */
     public readColorSequence(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        let length = this.readU8(offset)
+        const length = this.readU8(offset)
         offset++;
         let colorSequence : ColorSequenceKeypoint[] = []
+        let index = 0
         for(const i of $range(1,length)) {
-            this.ensureReadable(offset,4)
-            let t = readf32(this.buffer,offset)
-            let value = this.readColor3(offset + 4)
-            colorSequence[colorSequence.size()] = new ColorSequenceKeypoint(t,value)
-            offset += 7
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
+            const t = readf32(this.buffer,offset)
+            const value = this.readColor3(offset + 4)
+            colorSequence[index] = new ColorSequenceKeypoint(t,value)
+            offset += 7; index++;
         }
         return new ColorSequence(colorSequence)
     }
@@ -3940,15 +3846,16 @@ class Component {
     */
     public readColorSequenceF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        let length = this.readU8(offset)
+        const length = this.readU8(offset)
         offset++;
-        let colorSequence : ColorSequenceKeypoint[] = []
+        const colorSequence : ColorSequenceKeypoint[] = []
+        let index = 0
         for(const i of $range(1,length)) {
-            this.ensureReadable(offset,4)
-            let t = readf32(this.buffer,offset)
-            let value = this.readColor3F24(offset + 4)
-            colorSequence[colorSequence.size()] = new ColorSequenceKeypoint(t,value)
-            offset += 13
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
+            const t = readf32(this.buffer,offset)
+            const value = this.readColor3F24(offset + 4)
+            colorSequence[index] = new ColorSequenceKeypoint(t,value)
+            offset += 13; index++;
         }
         return new ColorSequence(colorSequence)
     }
@@ -3963,15 +3870,16 @@ class Component {
     */
     public readColorSequenceF32(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        let length = this.readU8(offset)
+        const length = this.readU8(offset)
         offset++;
-        let colorSequence : ColorSequenceKeypoint[] = []
+        const colorSequence : ColorSequenceKeypoint[] = []
+        let index = 0
         for(const i of $range(1,length)) {
-            this.ensureReadable(offset,4)
-            let t = readf32(this.buffer,offset)
-            let value = this.readColor3F32(offset + 4)
-            colorSequence[colorSequence.size()] = new ColorSequenceKeypoint(t,value)
-            offset += 16
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
+            const t = readf32(this.buffer,offset)
+            const value = this.readColor3F32(offset + 4)
+            colorSequence[index] = new ColorSequenceKeypoint(t,value)
+            offset += 16; index++;
         }
         return new ColorSequence(colorSequence)
     }
@@ -3986,15 +3894,16 @@ class Component {
     */
     public readColorSequenceF64(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        let length = this.readU8(offset)
+        const length = this.readU8(offset)
         offset++;
-        let colorSequence : ColorSequenceKeypoint[] = []
+        const colorSequence : ColorSequenceKeypoint[] = []
+        let index = 0
         for(const i of $range(1,length)) {
-            this.ensureReadable(offset,4)
-            let t = readf32(this.buffer,offset)
-            let value = this.readColor3F64(offset + 4)
-            colorSequence[colorSequence.size()] = new ColorSequenceKeypoint(t,value)
-            offset += 28
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
+            const t = readf32(this.buffer,offset)
+            const value = this.readColor3F64(offset + 4)
+            colorSequence[index] = new ColorSequenceKeypoint(t,value)
+            offset += 28; index++;
         }
         return new ColorSequence(colorSequence)
     }
@@ -4013,17 +3922,8 @@ class Component {
     */
     public readNumberRange(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let [min,max] = [
-                readf32(this.buffer,offset),
-                readf32(this.buffer,offset + 4)
-            ]
-            return new NumberRange(min,max)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.NumberRange
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.NumberRange);
+        return new NumberRange(readf32(this.buffer,offset),readf32(this.buffer,offset + 4))
     }
 
     /*
@@ -4036,17 +3936,11 @@ class Component {
     */
     public readNumberRangeF16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let [min,max] = [
-                Extensions.decodeF16(this.buffer,offset),
-                Extensions.decodeF16(this.buffer,offset + 2)
-            ]
-            return new NumberRange(min,max)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.NumberRangeF16
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.NumberRangeF16);
+        return new NumberRange(
+            Extensions.decodeF16(this.buffer,offset),
+            Extensions.decodeF16(this.buffer,offset + 2),
+        )
     }
 
     /* 
@@ -4059,14 +3953,9 @@ class Component {
     */
     public readNumberRangeF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let data = readNfp24(this.buffer,2,offset)
-            return new NumberRange(data[0],data[1])
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.NumberRangeF24
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.NumberRangeF24);
+        const [min,max] = readNfp24(this.buffer,2,offset)
+        return new NumberRange(min,max)
     }
 
     /*
@@ -4079,17 +3968,8 @@ class Component {
     */
     public readNumberRangeF64(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        return this.readValue(() => {
-            let [min,max] = [
-                readf64(this.buffer,offset),
-                readf64(this.buffer,offset)
-            ]
-            return new NumberRange(min,max)
-        },{
-            buffer: this.buffer,
-            offset: offset,
-            bytes: Constants.REQUIRED_BYTES.NumberRangeF64
-        })
+        if(this.enableSafeVerificationMode) this.ensureReadable(offset,Constants.REQUIRED_BYTES.NumberRangeF64);
+        return new NumberRange(readf64(this.buffer,offset), readf64(this.buffer,offset + 8))
     }
 
     //#endregion
@@ -4106,16 +3986,17 @@ class Component {
     */
     public readNumberSequence(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        let length = this.readU8(offset)
+        const length = this.readU8(offset)
         offset++;
-        let numberSequence : NumberSequenceKeypoint[] = []
+        const numberSequence : NumberSequenceKeypoint[] = []
+        let index = 0
         for(const i of $range(1,length)) {
-            this.ensureReadable(offset,12)
-            let t = readf32(this.buffer,offset)
-            let value = readf32(this.buffer,offset + 4)
-            let envelope = readf32(this.buffer,offset + 8)
-            numberSequence[numberSequence.size()] = new NumberSequenceKeypoint(t,value,envelope)
-            offset += 12
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset,12);
+            const t = readf32(this.buffer,offset)
+            const value = readf32(this.buffer,offset + 4)
+            const envelope = readf32(this.buffer,offset + 8)
+            numberSequence[index] = new NumberSequenceKeypoint(t,value,envelope)
+            offset += 12; index++;
         }
         return new NumberSequence(numberSequence)
     }
@@ -4130,16 +4011,17 @@ class Component {
     */
     public readNumberSequenceF16(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        let length = this.readU8(offset)
+        const length = this.readU8(offset)
         offset++;
-        let numberSequence : NumberSequenceKeypoint[] = []
+        const numberSequence : NumberSequenceKeypoint[] = []
+        let index = 0
         for(const i of $range(1,length)) {
-            this.ensureReadable(offset,10)
-            let t = readf32(this.buffer,offset)
-            let value = Extensions.decodeF16(this.buffer,offset + 4)
-            let envelope = readf32(this.buffer,offset + 6)
-            numberSequence[numberSequence.size()] = new NumberSequenceKeypoint(t,value,envelope)
-            offset += 10
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset,10);
+            const t = readf32(this.buffer,offset)
+            const value = Extensions.decodeF16(this.buffer,offset + 4)
+            const envelope = readf32(this.buffer,offset + 6)
+            numberSequence[index] = new NumberSequenceKeypoint(t,value,envelope)
+            offset += 10; index++;
         }
         return new NumberSequence(numberSequence)
     }
@@ -4154,16 +4036,17 @@ class Component {
     */
     public readNumberSequenceF24(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        let length = this.readU8(offset)
+        const length = this.readU8(offset)
         offset++;
-        let numberSequence : NumberSequenceKeypoint[] = []
+        const numberSequence : NumberSequenceKeypoint[] = []
+        let index = 0
         for(const i of $range(1,length)) {
-            this.ensureReadable(offset,11)
-            let t = readf32(this.buffer,offset)
-            let [value] = readNfp24(this.buffer,1,offset + 4)
-            let envelope = readf32(this.buffer,offset + 7)
-            numberSequence[numberSequence.size()] = new NumberSequenceKeypoint(t,value,envelope)
-            offset += 11
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset,11);
+            const t = readf32(this.buffer,offset)
+            const [value] = readNfp24(this.buffer,1,offset + 4)
+            const envelope = readf32(this.buffer,offset + 7)
+            numberSequence[index] = new NumberSequenceKeypoint(t,value,envelope)
+            offset += 11; index++;
         }
         return new NumberSequence(numberSequence)
     }
@@ -4178,16 +4061,17 @@ class Component {
     */
     public readNumberSequenceF64(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        let length = this.readU8(offset)
+        const length = this.readU8(offset)
         offset++;
-        let numberSequence : NumberSequenceKeypoint[] = [] 
+        const numberSequence : NumberSequenceKeypoint[] = []
+        let index = 0
         for(const i of $range(1,length)) {
-            this.ensureReadable(offset,16)
-            let t = readf32(this.buffer,offset)
-            let value = readf64(this.buffer,offset + 4)
-            let envelope = readf32(this.buffer,offset + 12)
-            numberSequence[numberSequence.size()] = new NumberSequenceKeypoint(t,value,envelope)
-            offset += 16
+            if(this.enableSafeVerificationMode) this.ensureReadable(offset,16);
+            const t = readf32(this.buffer,offset)
+            const value = readf64(this.buffer,offset + 4)
+            const envelope = readf32(this.buffer,offset + 12)
+            numberSequence[index] = new NumberSequenceKeypoint(t,value,envelope)
+            offset += 16; index++;
         }
         return new NumberSequence(numberSequence)
     }
@@ -4330,7 +4214,6 @@ class Component {
     * @since v2.6
     */
     public onOffsetChanged(callback : SignalConnectionCallback) {
-        assert(typeOf(callback) === "function","A valid function must be provided.")
         return this.offsetChanged.Connect(callback)
     }
 
@@ -4346,7 +4229,6 @@ class Component {
     * since v2.6
     */
     public onCapacityChanged(callback : SignalConnectionCallback) {
-        assert(typeOf(callback) === "function","A valid function must be provided.")
         return this.capacityChangedSignal.Connect(callback)
     }
 
@@ -4362,22 +4244,7 @@ class Component {
     * since v2.6
     */
     public onInstanceOffsetChanged(callback : SignalConnectionCallback) {
-        assert(typeOf(callback) === "function","A valid function must be provided.")
         return this.instanceOffsetChanged.Connect(callback)
-    }
-
-    /*
-    * Decompresses a buffer using the provided compression algorithm.
-    *
-    * @Parameters:
-    * - b : buffer,
-    * - algorithm : Enum.CompressionAlgorithm
-    * 
-    * @lastest modification : v4.0
-    * @since v2.6
-    */
-    public decompress(algorithm : Enum.CompressionAlgorithm) : buffer {
-        return EncodingService.DecompressBuffer(this.buffer,algorithm)
     }
 
     /*
@@ -4391,9 +4258,15 @@ class Component {
     * @latest modification : v4.0
     * @since v2.6
     */
-    public compress(algorithm : Enum.CompressionAlgorithm,compressLevel? : number) {
-        compressLevel = compressLevel || 1
-        return EncodingService.CompressBuffer(this.buffer,algorithm,clamp(compressLevel,-7,22))
+    public compress(
+        algorithm : Enum.CompressionAlgorithm = Enum.CompressionAlgorithm.Zstd,
+        compressLevel? : number
+    ) {
+        return EncodingService.CompressBuffer(
+            this.buffer,
+            algorithm,
+            clamp(compressLevel || 1,-7,22)
+        )
     }
 
     /* 
@@ -4406,8 +4279,7 @@ class Component {
     * @since v4.0.1
     */
     public changeMinimumAutoAllocationSize(num : number) {
-        num = clamp(abs(num),1,BUFFER_MAX_SIZE)
-        this.minimumAutoAllocationSize = num
+        this.minimumAutoAllocationSize = clamp(abs(num),1,BUFFER_MAX_SIZE)
     }
 
     /*
@@ -4473,6 +4345,21 @@ class Component {
         return this
     }
 
+    public resetBuffer() {
+        this.buffer = create(0)
+        this.offset = 0
+        this.offsetChanged.Fire(0)
+        this.capacityChangedSignal.Fire(0)
+        return this
+    }
+    
+    public resetInstanceBuffer() {
+        this.instanceBuffer.clear()
+        this.instanceOffset = 0
+        this.instanceOffsetChanged.Fire(0)
+        return this
+    }
+        
     /*
     * Create a copy of the component.
     *
@@ -4483,15 +4370,11 @@ class Component {
     * @since v2.5
     */
     public copy() {
-        let component = Constructor.init({
-            Size : bufflen(this.buffer),
+        return Constructor.init({
+            SourceBuffer : this.buffer,
             UseAutoAllocation : this.useAutoAllocation,
-            EnableSafeVerificationMode : this.enableSafeVerificationMode
+            EnableSafeVerificationMode : this.enableSafeVerificationMode,
         })
-        copy(component.buffer,0,this.buffer,0,bufflen(this.buffer))
-        component.offset = this.offset
-        component.offsetChanged.Fire(this.offset)
-        return component
     }
 
     /*
