@@ -15,8 +15,7 @@
 
 ## Rbxts Version
 
-- Rewrite all readers for significant performance improvements by removing unnecessary abstractions.
-- Add a buffer soft-reset function (offset = 0, buffer size = 0).
+- Continue refactoring functions that do not yet support enableSafeVerificationMode.
 
 > [!WARNING]
 > The module is now complete. Please expect minor optimizations and refactoring during and after the testing and benchmarking phase.
