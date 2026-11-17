@@ -44,7 +44,7 @@ export abstract class Utilities {
             if (n === 0) {
                 return { bits : 1, bytes : 1, isUnsigned : true}
             }
-            let bits = ceil(log(n + 1,2))
+            const bits = ceil(log(n + 1,2))
             return { bits : (clampBits) ? ceil(bits / 8) * 8 : bits, bytes : ceil(bits / 8), isUnsigned : true}
         }
     };
@@ -83,11 +83,11 @@ export abstract class Utilities {
         payload : number,
         perfomAutoAllocation? : boolean
     ) : buffer {
-        let bufferSize = buffer.len(b)
+        const bufferSize = buffer.len(b)
         offset = offset <= bufferSize ? offset : bufferSize
-        let required = floor(offset) + payload
+        const required = floor(offset) + payload
         if(bufferSize <= required && perfomAutoAllocation) {
-            let newBuffer = buffer.create(required)
+            const newBuffer = buffer.create(required)
             buffer.copy(newBuffer,0,b,0,bufferSize)
             b = newBuffer
         }
@@ -106,7 +106,7 @@ export abstract class Utilities {
         offset : number,
         payload : number,
     ) : boolean {
-        let bufferSize = buffer.len(b)
+        const bufferSize = buffer.len(b)
         offset = offset <= bufferSize ? offset : bufferSize
         if(offset < 0 || offset + payload > bufferSize) return false;
         return true

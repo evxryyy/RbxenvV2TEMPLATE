@@ -18,7 +18,6 @@ const readu16 = buffer.readu16;
 
 // Fixed numbers (used for big-endian manual packing etc..)
 const fNAN = 0x7E00 // 32_256 (used for NaN in float16)
-const fInfinity = 0x7C00 // 31_744 (used for infinity in float16)
 const fSubNormal = 0x3FF // 1023 (used for subnormals in float16)
 const f31bit = 0x1F // 31 (used for 31 bit fixed numbers)
 const f15bit = 0xF // 15 (used for 15 bit fixed numbers)
@@ -58,8 +57,8 @@ export abstract class Extensions {
     * @Returns : Types.Quaternion (e.g. {x,y,z,w})
     */
     public static axisAngleToQuaternion(axis : Vector3,angle : number) : Types.Quaternion {
-        let halfAngle = angle / 2
-        let [s,c] = [sin(halfAngle),cos(halfAngle)]
+        const halfAngle = angle / 2
+        const [s,c] = [sin(halfAngle),cos(halfAngle)]
         return {
             x: axis.X * s,
             y: axis.Y * s,
@@ -115,7 +114,7 @@ export abstract class Extensions {
             if(exponent >= 1024) { exponent = 1; mantissa = 0 }
         }
         else {
-            let e = floor(log(value) / log(2))
+            const e = floor(log(value) / log(2))
             mantissa = floor(((value / pow(2,e)) - 1) * 1024 + 0.5)
             exponent = e + 15
             if(mantissa >= 1024) { mantissa = 0; exponent++ }
@@ -133,10 +132,10 @@ export abstract class Extensions {
     * The decoded IEEE 754 half-precision floating-point.
     */
     public static decodeF16(buf : buffer,offset : number) : number {
-        let uint16 = readu16(buf,offset)
-        let sign = (uint16 >>> f15bit)
-        let exponent = (uint16 >>> f10bit) & f31bit
-        let mantissa = (uint16 & fSubNormal)
+        const uint16 = readu16(buf,offset)
+        const sign = (uint16 >>> f15bit)
+        const exponent = (uint16 >>> f10bit) & f31bit
+        const mantissa = (uint16 & fSubNormal)
         if(exponent === 0) {
             if(mantissa === 0) return (sign === 0) ? 0 : -0
             else {
@@ -202,8 +201,8 @@ export abstract class Extensions {
             return "NumberRange"
         }
         // Get the first letter of the type for numbers
-        let symbol = sub(typeName,1,1)
-        let isOnly3Letters = (typeName.size() === 3) ? true : false;
+        const symbol = sub(typeName,1,1)
+        const isOnly3Letters = (typeName.size() === 3) ? true : false;
         if((symbol === "U" || symbol === "I" || symbol === "F") && isOnly3Letters) {
             return "number"
         }
@@ -254,9 +253,9 @@ export abstract class Extensions {
     * The decoded floating-point number
     */
     public static decodeF24(b24 : number) : number {
-        let sign = bit32.extract(b24,23,1)
-        let exponent = bit32.extract(b24,f24_mant_bits,f24_exp_bits)
-        let mantissa = bit32.extract(b24,0,f24_mant_bits)
+        const sign = bit32.extract(b24,23,1)
+        const exponent = bit32.extract(b24,f24_mant_bits,f24_exp_bits)
+        const mantissa = bit32.extract(b24,0,f24_mant_bits)
         if(exponent === 0 && mantissa === 0) return 0;
         let value = 0
         if(exponent === 0) value = mantissa * pow(2,-33)
@@ -300,11 +299,11 @@ export abstract class Extensions {
     * The decoded 8-bit float number.
     */
     public static decodeF8(b8 : number) : number {
-        let sign = (b8 >>> 7)
-        let exponent = ((b8 >>> 3) & f15bit)
-        let mantissa = (b8 & 0x7)
+        const sign = (b8 >>> 7)
+        const exponent = ((b8 >>> 3) & f15bit)
+        const mantissa = (b8 & 0x7)
         if(exponent === 0 && mantissa === 0) { return 0 }
-        let value = (1 + mantissa / 8) * pow(2,exponent - 7)
+        const value = (1 + mantissa / 8) * pow(2,exponent - 7)
         return (sign === 1) ? -value : value
     }
 

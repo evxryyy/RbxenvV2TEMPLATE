@@ -9,7 +9,6 @@ import {
     BitstreamTypes,
     BitstreamTableType,
     BitstreamTypesName,
-    ArraySchema,
     StructSchema, SerializationSchema, DeserializedData
 } from "./packages/enumeration"
 import { Constants } from "./packages/constants"
@@ -22,12 +21,6 @@ import { VersionController } from "./packages/versionController";
 type WriterIndexCallback = (this : Component,value : defined | unknown) => Component
 type ReaderIndexCallback<R> = (this : Component,offset : number,extra? : unknown) => R
 type SignalConnectionCallback = (newValue : number) => void
-type ReaderParameters = {
-    buffer : buffer,
-    offset : number,
-    bytes? : number,
-    bits? : number
-}
 type SerializedSchemalessBuffer = {
     Schema : buffer,
     Data : buffer,
@@ -43,7 +36,7 @@ if(versionIsVerified === false) {
 // ## Luau imports ##
 
 // buffer api
-const create = buffer.create; const fromstring = buffer.fromstring; const bufftostring = buffer.tostring
+const create = buffer.create;
 const bufflen = buffer.len; const readbits = buffer.readbits; const readi8 = buffer.readi8
 const readi16 = buffer.readi16; const readi32 = buffer.readi32; const readu8 = buffer.readu8
 const readu16 = buffer.readu16; const readu32 = buffer.readu32; const readf32 = buffer.readf32
@@ -51,18 +44,17 @@ const readf64 = buffer.readf64; const writebits = buffer.writebits; const writei
 const writei16 = buffer.writei16; const writei32 = buffer.writei32; const writeu8 = buffer.writeu8
 const writeu16 = buffer.writeu16; const writeu32 = buffer.writeu32; const writef32 = buffer.writef32
 const writef64 = buffer.writef64; const readstring = buffer.readstring; const writestring = buffer.writestring
-const copy = buffer.copy; const fill = buffer.fill
+const copy = buffer.copy;
 const writevectorf32x2 = buffer.writevectorf32x2; const writevectorf32x3 = buffer.writevectorf32x3
 const readvectorf32x2 = buffer.readvectorf32x2; const readvectorf32x3 = buffer.readvectorf32x3
 
 // math api
-const huge = math.huge; const modf = math.modf; const floor = math.floor
-const clamp = math.clamp; const ceil = math.ceil; const log = math.log
+const modf = math.modf; const floor = math.floor
+const clamp = math.clamp;
 const round = math.round; const abs = math.abs
 
 // string api
-const strgmatch = string.gmatch; const strchar = string.char; const strbyte = string.byte
-const strsub = string.sub; const strmatch = string.match
+const strmatch = string.match
 
 // table api
 const tblinsert = table.insert; const tblclone = table.clone; const tblclear = table.clear
@@ -127,7 +119,7 @@ function writeNfp24(b : buffer,fps : number[],offset : number) : void {
 * @Returns: number[] -- The numbers read.
 */
 function readNfp24(b : buffer,count : number,offset : number) : number[] {
-    let fps : number[] = []
+    const fps : number[] = []
     for(let i = 0; i < count; i++) {
         const encoded = (readu8(b, offset + 0) << 16) |
             (readu8(b, offset + 1) << 8) |
@@ -194,7 +186,7 @@ function writeBitflagData(component : Component,formated : Record<string,defined
             writeBitflagData(component,value as typeof formated,data[key] as typeof data)
         }
         else if(typeIs(value,"string")) {
-            const [name,len] = strmatch(value,extractStringParts) as LuaTuple<[string,string]>
+            const [name] = strmatch(value,extractStringParts) as LuaTuple<[string,string]>
             component.writeAs(((name || value) as BitstreamTypes),data[key])
         }
     }
@@ -267,7 +259,7 @@ export abstract class Constructor {
     // Deserialize a buffer using the current schema and return the dictionary containing the exact decoded values.
     static deserialize(serializedBuffer : buffer, schema : SerializationSchema, decompressBuffer? : boolean) : DeserializedData {
         let offset = 0
-        let component = new Component({
+        const component = new Component({
             SourceBuffer : decompressBuffer ? this.decompress(serializedBuffer) : serializedBuffer,
             UseAutoAllocation : false,
             EnableSafeVerificationMode : false,
@@ -356,7 +348,7 @@ export abstract class Constructor {
             UseAutoAllocation : false,
             EnableSafeVerificationMode : false,
         })
-        const [deserializedData,_] = readBitflagData(component,readableData,0)
+        const [deserializedData] = readBitflagData(component,readableData,0)
         return deserializedData
     }
     
@@ -446,7 +438,7 @@ class Component {
     */
     public allocate(size : number) : Component {
         if(size <= 0) return this;
-        let newBuffer = create(bufflen(this.buffer) + size)
+        const newBuffer = create(bufflen(this.buffer) + size)
         copy(newBuffer,0,this.buffer,0,bufflen(this.buffer))
         this.buffer = newBuffer
         this.capacityChangedSignal.Fire(bufflen(this.buffer))
@@ -747,8 +739,8 @@ class Component {
         this.ensureWritable(Constants.REQUIRED_BYTES.U40)
         value = clamp(modf(value)[0],Constants.MIN_UINT,Constants.MAX_UINT40)
         // Big-endian manual packing
-        let remainder = value % fbit32
-        writeu8(this.buffer,this.offset,floor(value / fbit32) % fbit8)
+        const remainder = value % fbit32
+        writeu8(this.buffer,this.offset,floor(remainder) % fbit8)
         writeu8(this.buffer,this.offset + 1,bit32.extract(remainder,24,8))
         writeu8(this.buffer,this.offset + 2,bit32.extract(remainder,16,8))
         writeu8(this.buffer,this.offset + 3,bit32.extract(remainder,8,8))
@@ -857,7 +849,7 @@ class Component {
     public writeF16(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.F16)
-        let [uint16] = Extensions.toFloat16(value)
+        const [uint16] = Extensions.toFloat16(value)
         writeu16(this.buffer,this.offset,uint16)
         this.offset += 2
         this.offsetChanged.Fire(this.offset)
@@ -877,7 +869,7 @@ class Component {
     public writeF24(value : number) : Component {
         assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
         this.ensureWritable(Constants.REQUIRED_BYTES.F24)
-        let fp24 = Extensions.encodeF24(value)
+        const fp24 = Extensions.encodeF24(value)
         writeu8(this.buffer,this.offset,bit32.extract(fp24,16,8))
         writeu8(this.buffer,this.offset + 1,bit32.extract(fp24,8,8))
         writeu8(this.buffer,this.offset + 2,bit32.extract(fp24,0,8))
@@ -955,7 +947,7 @@ class Component {
     */
     public writeString(value : string){
         assert(typeOf(value) === "string","First arguments is expected to be a string")
-        let length = value.size()
+        const length = value.size()
         this.ensureWritable(length)
         writestring(this.buffer,this.offset,value,length)
         this.offset += length
@@ -975,9 +967,9 @@ class Component {
     public writePrefixedString(value : string){
         assert(typeOf(value) === "string","First arguments is expected to be a string")
         this.ensureWritable(Constants.REQUIRED_BYTES.PrefixedString(value))
-        let length = value.size()
-        let bytesData = Utilities.getEquivalentBytesInfoFromNumber(length)
-        this.writeU8(Enumeration.BitstreamEnumeration[`U${bytesData.bytes * 8}` as keyof unknown])
+        const length = value.size()
+        const bytesData = Utilities.getEquivalentBytesInfoFromNumber(length,true)
+        this.writeU8(Enumeration.BitstreamEnumeration[`U${bytesData.bits}` as keyof unknown])
         this.writeUInt(length)
         this.writeString(value)
         return this
@@ -1017,7 +1009,7 @@ class Component {
     public writeBool8(value : [defined]) {
         assert(typeOf(value) === "table","First arguments is expected to be a table")
         this.ensureWritable(Constants.REQUIRED_BYTES.Bool8)
-        value.forEach((element,index) => {
+        value.forEach((element) => {
             writebits(this.buffer,this.offset * 8 + 1,1,(element) ? 1 : 0)
         })
         this.offset += 1
@@ -1100,7 +1092,7 @@ class Component {
     public writeVector2uint16(value : Vector2) {
         assert(typeOf(value) === "Vector2","First arguments is expected to be a Vector2")
         this.ensureWritable(Constants.REQUIRED_BYTES.Vector2uint16)
-        let [x,y] = [
+        const [x,y] = [
             clamp(modf(value.X)[0],Constants.MIN_UINT,Constants.MAX_UINT16),
             clamp(modf(value.Y)[0],Constants.MIN_UINT,Constants.MAX_UINT16)
         ]
@@ -1164,7 +1156,7 @@ class Component {
     public writeVector3float32(value : Vector3) {
         assert(typeOf(value) === "Vector3","First arguments is expected to be a Vector3")
         this.ensureWritable(Constants.REQUIRED_BYTES.Vector3float32)
-        let [x,y,z] = [value.X,value.Y,value.Z]
+        const [x,y,z] = [value.X,value.Y,value.Z]
         writevectorf32x3(this.buffer,this.offset,vector.create(x,y,z))
         this.offset += 12
         this.offsetChanged.Fire(this.offset)
@@ -1183,7 +1175,7 @@ class Component {
     public writeVector3int16(value : Vector3int16) {
         assert(typeOf(value) === "Vector3int16","First arguments is expected to be a Vector3int16")
         this.ensureWritable(Constants.REQUIRED_BYTES.Vector3int16)
-        let [x,y,z] = [value.X,value.Y,value.Z]
+        const [x,y,z] = [value.X,value.Y,value.Z]
         writei16(this.buffer,this.offset,x)
         writei16(this.buffer,this.offset + 2,y)
         writei16(this.buffer,this.offset + 4,z)
@@ -1204,7 +1196,7 @@ class Component {
     public writeVector3uint16(value : Vector3) {
         assert(typeOf(value) === "Vector3","First arguments is expected to be a Vector3")
         this.ensureWritable(Constants.REQUIRED_BYTES.Vector3uint16)
-        let [x,y,z] = [
+        const [x,y,z] = [
             clamp(modf(value.X)[0],Constants.MIN_UINT,Constants.MAX_INT16),
             clamp(modf(value.Y)[0],Constants.MIN_UINT,Constants.MAX_INT16),
             clamp(modf(value.Z)[0],Constants.MIN_UINT,Constants.MAX_INT16),
@@ -1254,12 +1246,12 @@ class Component {
     public writeCFrameQuaternion(value : CFrame) {
         assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
         this.ensureWritable(Constants.REQUIRED_BYTES.CFrameQuaternion)
-        let pos = value.Position
-        let [axis,angle] = value.ToAxisAngle()
+        const pos = value.Position
+        const [axis,angle] = value.ToAxisAngle()
         // Position
         writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
         // Quaternion
-        let quaternion = Extensions.axisAngleToQuaternion(axis,angle)
+        const quaternion = Extensions.axisAngleToQuaternion(axis,angle)
         writef32(this.buffer,this.offset + 12,quaternion.x)
         writef32(this.buffer,this.offset + 16,quaternion.y)
         writef32(this.buffer,this.offset + 20,quaternion.z)
@@ -1282,8 +1274,8 @@ class Component {
     public writeCFrameF24(value : CFrame){
         assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
         this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF24)
-        let pos = value.Position
-        let [rx,ry,rz] = value.ToEulerAnglesXYZ()
+        const pos = value.Position
+        const [rx,ry,rz] = value.ToEulerAnglesXYZ()
         writeNfp24(this.buffer,[
             pos.X,pos.Y,pos.Z,
             rx,ry,rz
@@ -1306,8 +1298,8 @@ class Component {
     public writeCFrameF32(value : CFrame) {
         assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
         this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF32)
-        let pos = value.Position
-        let [rx,ry,rz] = value.ToEulerAnglesXYZ()
+        const pos = value.Position
+        const [rx,ry,rz] = value.ToEulerAnglesXYZ()
         writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
         writevectorf32x3(this.buffer,this.offset + 12,vector.create(rx,ry,rz))
         this.offset += 24
@@ -1334,8 +1326,8 @@ class Component {
     public writeCFrameQuantized(value : CFrame) {
         assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
         this.ensureWritable(Constants.REQUIRED_BYTES.CFrameQuantized)
-        let pos = value.Position
-        let [rx,ry,rz] = value.ToEulerAnglesXYZ()
+        const pos = value.Position
+        const [rx,ry,rz] = value.ToEulerAnglesXYZ()
         writei16(this.buffer,this.offset,clamp(round(pos.X * POSITION_SCALE),Constants.MIN_INT16,Constants.MAX_INT16))
         writei16(this.buffer,this.offset + 2,clamp(round(pos.Y * POSITION_SCALE),Constants.MIN_INT16,Constants.MAX_INT16))
         writei16(this.buffer,this.offset + 4,clamp(round(pos.Z * POSITION_SCALE),Constants.MIN_INT16,Constants.MAX_INT16))
@@ -1360,8 +1352,8 @@ class Component {
     public writeCFrameF64(value : CFrame) {
         assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
         this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF64)
-        let pos = value.Position
-        let [rx,ry,rz] = value.ToEulerAnglesXYZ()
+        const pos = value.Position
+        const [rx,ry,rz] = value.ToEulerAnglesXYZ()
         writef64(this.buffer,this.offset,pos.X)
         writef64(this.buffer,this.offset + 8,pos.Y)
         writef64(this.buffer,this.offset + 16,pos.Z)
@@ -1592,9 +1584,9 @@ class Component {
     public writeRegion3(value : Region3){
         assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
         this.ensureWritable(Constants.REQUIRED_BYTES.Region3)
-        let [size,cf] = [value.Size,value.CFrame]
-        let pos = cf.Position
-        let [rx,ry,rz] = cf.ToEulerAnglesXYZ()
+        const [size,cf] = [value.Size,value.CFrame]
+        const pos = cf.Position
+        const [rx,ry,rz] = cf.ToEulerAnglesXYZ()
         // CFrame First
         writef64(this.buffer,this.offset,pos.X)
         writef64(this.buffer,this.offset + 8,pos.Y)
@@ -1624,12 +1616,12 @@ class Component {
     public writeRegion3Quaternion(value : Region3) {
         assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
         this.ensureWritable(Constants.REQUIRED_BYTES.Region3Quaternion)
-        let [size,cf] = [value.Size,value.CFrame]
-        let pos = cf.Position
-        let [axis,angle] = cf.ToAxisAngle()
+        const [size,cf] = [value.Size,value.CFrame]
+        const pos = cf.Position
+        const [axis,angle] = cf.ToAxisAngle()
         // CFrame 
         writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
-        let quaternion = Extensions.axisAngleToQuaternion(axis,angle)
+        const quaternion = Extensions.axisAngleToQuaternion(axis,angle)
         writef32(this.buffer,this.offset + 12,quaternion.x)
         writef32(this.buffer,this.offset + 16,quaternion.y)
         writef32(this.buffer,this.offset + 20,quaternion.z)
@@ -1656,9 +1648,9 @@ class Component {
     public writeRegion3CFrameF24(value : Region3) {
         assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
         this.ensureWritable(Constants.REQUIRED_BYTES.Region3CFrameF24)
-        let [size,cf] = [value.Size,value.CFrame]
-        let pos = cf.Position
-        let [rx,ry,rz] = cf.ToEulerAnglesXYZ()
+        const [size,cf] = [value.Size,value.CFrame]
+        const pos = cf.Position
+        const [rx,ry,rz] = cf.ToEulerAnglesXYZ()
         // CFrame First
         writeNfp24(this.buffer,[
             pos.X,pos.Y,pos.Z,
@@ -1685,9 +1677,9 @@ class Component {
     public writeRegion3CFrameF32(value : Region3) {
         assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
         this.ensureWritable(Constants.REQUIRED_BYTES.Region3CFrameF32)
-        let [size,cf] = [value.Size,value.CFrame]
-        let pos = cf.Position
-        let [rx,ry,rz] = cf.ToEulerAnglesXYZ()
+        const [size,cf] = [value.Size,value.CFrame]
+        const pos = cf.Position
+        const [rx,ry,rz] = cf.ToEulerAnglesXYZ()
         // CFrame
         writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
         writef32(this.buffer,this.offset + 12,rx)
@@ -1713,7 +1705,7 @@ class Component {
     public writeRegion3int16(value : Region3int16) {
         assert(typeOf(value) === "Region3int16","First arguments is expected to be a Region3int16")
         this.ensureWritable(Constants.REQUIRED_BYTES.Region3int16)
-        let [min,max] = [value.Min,value.Max]
+        const [min,max] = [value.Min,value.Max]
         // Min
         writei16(this.buffer,this.offset,min.X)
         writei16(this.buffer,this.offset + 2,min.Y)
@@ -1743,9 +1735,9 @@ class Component {
     public writeRegion3Quantized(value : Region3) {
         assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
         this.ensureWritable(Constants.REQUIRED_BYTES.Region3Quantized)
-        let [size,cf] = [value.Size,value.CFrame]
-        let pos = cf.Position
-        let [rx,ry,rz] = cf.ToEulerAnglesXYZ()
+        const [size,cf] = [value.Size,value.CFrame]
+        const pos = cf.Position
+        const [rx,ry,rz] = cf.ToEulerAnglesXYZ()
         // Quantized-CFrame
         writei16(this.buffer,this.offset,clamp(round(pos.X * POSITION_SCALE),Constants.MIN_INT16,Constants.MAX_INT16))
         writei16(this.buffer,this.offset + 2,clamp(round(pos.Y * POSITION_SCALE),Constants.MIN_INT16,Constants.MAX_INT16))
@@ -1778,7 +1770,7 @@ class Component {
     public writeEnum(value : EnumItem) {
         assert(typeOf(value) === "EnumItem","First arguments is expected to be a EnumItem")
         this.ensureWritable(Constants.REQUIRED_BYTES.Enum)
-        let id = Constants.EnumItemIndex[value as keyof unknown] as number
+        const id = Constants.EnumItemIndex[value as keyof unknown] as number
         writeu16(this.buffer,this.offset,id)
         this.offset += 2
         this.offsetChanged.Fire(this.offset)
@@ -1802,11 +1794,11 @@ class Component {
     */
     public writeRotationCurveKey(value : RotationCurveKey) {
         assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
-        let bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"Normal")
+        const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"Normal")
         this.ensureWritable(bytes)
-        let id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
-        let pos = value.Value.Position
-        let [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
+        const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
+        const pos = value.Value.Position
+        const [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
         // Time
         writef32(this.buffer,this.offset,value.Time)
         // CFrame
@@ -1844,16 +1836,16 @@ class Component {
     */
     public writeRotationCurveKeyQuaternion(value : RotationCurveKey) {
         assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
-        let bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"Quaternion")
+        const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"Quaternion")
         this.ensureWritable(bytes)
-        let id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
-        let pos = value.Value.Position
-        let [axis,angle] = value.Value.ToAxisAngle()
+        const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
+        const pos = value.Value.Position
+        const [axis,angle] = value.Value.ToAxisAngle()
         // Time
         writef32(this.buffer,this.offset,value.Time)
         // CFrame
         writevectorf32x3(this.buffer,this.offset + 4,vector.create(pos.X,pos.Y,pos.Z))
-        let quaternion = Extensions.axisAngleToQuaternion(axis,angle)
+        const quaternion = Extensions.axisAngleToQuaternion(axis,angle)
         writef32(this.buffer,this.offset + 16,quaternion.x)
         writef32(this.buffer,this.offset + 20,quaternion.y)
         writef32(this.buffer,this.offset + 24,quaternion.z)
@@ -1886,11 +1878,11 @@ class Component {
     */
     public writeRotationCurveKeyCFrameF24(value : RotationCurveKey) {
         assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
-        let bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"CFrameF24")
+        const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"CFrameF24")
         this.ensureWritable(bytes)
-        let id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
-        let pos = value.Value.Position
-        let [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
+        const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
+        const pos = value.Value.Position
+        const [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
         // Time
         writef32(this.buffer,this.offset,value.Time)
         // CFrame
@@ -1926,11 +1918,11 @@ class Component {
     */
     public writeRotationCurveKeyCFrameF32(value : RotationCurveKey) {
         assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
-        let bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"CFrameF32")
+        const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"CFrameF32")
         this.ensureWritable(bytes)
-        let id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
-        let pos = value.Value.Position
-        let [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
+        const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
+        const pos = value.Value.Position
+        const [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
         // Time
         writef32(this.buffer,this.offset,value.Time)
         // CFrame
@@ -1968,11 +1960,11 @@ class Component {
     */
     public writeRotationCurveKeyQuantized(value : RotationCurveKey) {
         assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
-        let bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"Quantized")
+        const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"Quantized")
         this.ensureWritable(bytes)
-        let id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
-        let pos = value.Value.Position
-        let [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
+        const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
+        const pos = value.Value.Position
+        const [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
         // Time
         writef32(this.buffer,this.offset,value.Time)
         // CFrame (Quantized)
@@ -2013,9 +2005,9 @@ class Component {
     */
     public writeFloatCurveKey(value : EditableFloatCurveKey) {
         assert(typeOf(value) === "FloatCurveKey","First arguments is expected to be a FloatCurveKey")
-        let bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"Normal")
+        const bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"Normal")
         this.ensureWritable(bytes)
-        let id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
+        const id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
         writef32(this.buffer,this.offset,value.Time)
         writef64(this.buffer,this.offset + 4,value.Value)
         writeu16(this.buffer,this.offset + 12,id)
@@ -2045,9 +2037,9 @@ class Component {
     */
     public writeFloatCurveKeyF24(value : EditableFloatCurveKey) {
         assert(typeOf(value) === "FloatCurveKey","First arguments is expected to be a FloatCurveKey")
-        let bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"F24")
+        const bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"F24")
         this.ensureWritable(bytes)
-        let id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
+        const id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
         writef32(this.buffer,this.offset,value.Time)
         writeNfp24(this.buffer,[value.Value],this.offset + 4)
         writeu16(this.buffer,this.offset + 7,id)
@@ -2077,9 +2069,9 @@ class Component {
     */
     public writeFloatCurveKeyF32(value : EditableFloatCurveKey) {
         assert(typeOf(value) === "FloatCurveKey","First arguments is expected to be a FloatCurveKey")
-        let bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"F32")
+        const bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"F32")
         this.ensureWritable(bytes)
-        let id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
+        const id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
         writef32(this.buffer,this.offset,value.Time)
         writef32(this.buffer,this.offset + 4,value.Value)
         writeu16(this.buffer,this.offset + 8,id)
@@ -2109,11 +2101,11 @@ class Component {
     */
     public writeFloatCurveKeyF16(value : EditableFloatCurveKey) {
         assert(typeOf(value) === "FloatCurveKey","First arguments is expected to be a FloatCurveKey")
-        let bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"F16")
+        const bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"F16")
         this.ensureWritable(bytes)
-        let id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
+        const id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
         writef32(this.buffer,this.offset,value.Time)
-        let [uint16] = Extensions.toFloat16(value.Value)
+        const [uint16] = Extensions.toFloat16(value.Value)
         writeu16(this.buffer,this.offset + 4,uint16)
         writei16(this.buffer,this.offset + 6,id)
         if(value.Interpolation === Enum.KeyInterpolationMode.Cubic) {
@@ -2145,12 +2137,12 @@ class Component {
     public writeColorSequence(value : ColorSequence) {
         assert(typeOf(value) === "ColorSequence","First arguments is expected to be a ColorSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped ColorSequence, empty table was given"); return }
-        let bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"Normal")
+        const bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"Normal")
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
-            let keypoint = value.Keypoints[i]
+            const keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writeu8(this.buffer,this.offset + 4,round(keypoint.Value.R * 255))
             writeu8(this.buffer,this.offset + 5,round(keypoint.Value.G * 255))
@@ -2177,12 +2169,12 @@ class Component {
     public writeColorSequenceF24(value : ColorSequence) {
         assert(typeOf(value) === "ColorSequence","First arguments is expected to be a ColorSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped ColorSequence, empty table was given"); return }
-        let bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"F24")
+        const bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"F24")
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
-            let keypoint = value.Keypoints[i]
+            const keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writeNfp24(this.buffer,[keypoint.Value.R,keypoint.Value.G,keypoint.Value.B],this.offset + 4)
             this.offset += 13
@@ -2207,12 +2199,12 @@ class Component {
     public writeColorSequenceF32(value : ColorSequence) {
         assert(typeOf(value) === "ColorSequence","First arguments is expected to be a ColorSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped ColorSequence, empty table was given"); return }
-        let bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"F32")
+        const bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"F32")
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
-            let keypoint = value.Keypoints[i]
+            const keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)        
             writef32(this.buffer,this.offset + 4,keypoint.Value.R)
             writef32(this.buffer,this.offset + 8,keypoint.Value.G)
@@ -2239,12 +2231,12 @@ class Component {
     public writeColorSequenceF64(value : ColorSequence) {
         assert(typeOf(value) === "ColorSequence","First arguments is expected to be a ColorSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped ColorSequence, empty table was given"); return }
-        let bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"F64")
+        const bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"F64")
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
-            let keypoint = value.Keypoints[i]
+            const keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writef64(this.buffer,this.offset + 4,keypoint.Value.R)
             writef64(this.buffer,this.offset + 12,keypoint.Value.G)
@@ -2294,8 +2286,8 @@ class Component {
     public writeNumberRangeF16(value : NumberRange) {
         assert(typeOf(value) === "NumberRange","First arguments is expected to be a NumberRange")
         this.ensureWritable(Constants.REQUIRED_BYTES.NumberRangeF16)
-        let min = Extensions.toFloat16(value.Min)[0]
-        let max = Extensions.toFloat16(value.Max)[0]
+        const min = Extensions.toFloat16(value.Min)[0]
+        const max = Extensions.toFloat16(value.Max)[0]
         writeu16(this.buffer,this.offset,min)
         writeu16(this.buffer,this.offset + 2,max)
         this.offset += 4
@@ -2362,12 +2354,12 @@ class Component {
     public writeNumberSequence(value : NumberSequence) {
         assert(typeOf(value) === "NumberSequence","First arguments is expected to be a NumberSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped NumberSequence, empty table was given"); return }
-        let bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"Normal")
+        const bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"Normal")
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
-            let keypoint = value.Keypoints[i]
+            const keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writef32(this.buffer,this.offset + 4,keypoint.Value)
             writef32(this.buffer,this.offset,keypoint.Envelope)
@@ -2393,14 +2385,14 @@ class Component {
     public writeNumberSequenceF16(value : NumberSequence) {
         assert(typeOf(value) === "NumberSequence","First arguments is expected to be a NumberSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped NumberSequence, empty table was given"); return }
-        let bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"F16")
+        const bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"F16")
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
-            let keypoint = value.Keypoints[i]
+            const keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
-            let [uint16] = Extensions.toFloat16(keypoint.Value)
+            const [uint16] = Extensions.toFloat16(keypoint.Value)
             writeu16(this.buffer,this.offset + 4,uint16)
             writef32(this.buffer,this.offset + 6,keypoint.Envelope)
             this.offset += 10
@@ -2425,12 +2417,12 @@ class Component {
     public writeNumberSequenceF24(value : NumberSequence) {
         assert(typeOf(value) === "NumberSequence","First arguments is expected to be a NumberSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped NumberSequence, empty table was given"); return }
-        let bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"F24")
+        const bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"F24")
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
-            let keypoint = value.Keypoints[i]
+            const keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writeNfp24(this.buffer,[keypoint.Value],this.offset + 4)
             writef32(this.buffer,this.offset + 7,keypoint.Envelope)
@@ -2456,12 +2448,12 @@ class Component {
     public writeNumberSequenceF64(value : NumberSequence){
         assert(typeOf(value) === "NumberSequence","First arguments is expected to be a NumberSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped NumberSequence, empty table was given"); return }
-        let bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"F64")
+        const bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"F64")
         this.ensureWritable(bytes)
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
-            let keypoint = value.Keypoints[i]
+            const keypoint = value.Keypoints[i]
             writef32(this.buffer,this.offset,keypoint.Time)
             writef64(this.buffer,this.offset + 4,keypoint.Value)
             writef32(this.buffer,this.offset + 12,keypoint.Envelope)
@@ -2511,8 +2503,8 @@ class Component {
         assert(typeOf(value) !== "nil","A value is required.")
         if(typeOf(writeType) === "table") {
             // Formatted `writeType` to an actual TableType
-            let formatted = (writeType as BitstreamTableType)
-            let typeName = formatted.Type
+            const formatted = (writeType as BitstreamTableType)
+            const typeName = formatted.Type
             if(typeName === "Array") {
                 Resolver.iterateArray(formatted.Types,(value as unknown[]),(t,v) => {
                     this.writeAs(t,v)
@@ -2524,7 +2516,7 @@ class Component {
                 })
             }
             else {
-                let extra = formatted.Length || formatted.Option
+                const extra = formatted.Length || formatted.Option
                 if(typeOf(extra) !== "number") {
                     (formatted.Type as string) = formatted.Type + extra
                 }
@@ -2569,14 +2561,14 @@ class Component {
     */
     public writeAny(value : unknown) {
         assert(typeOf(value) !== "nil","A value is required.")
-        let valueType = Resolver.resolveValueType(value)
+        const valueType = Resolver.resolveValueType(value)
         switch(valueType) {
             case "Array":
-                let array = Resolver.resolveArraySchema(value as [unknown])
+                const array = Resolver.resolveArraySchema(value as [unknown])
                 this.writeAs(array,value)
                 return $tuple(this,array);
             case "Struct":
-                let struct = Resolver.resolveStructSchema(value as Record<string,defined>)
+                const struct = Resolver.resolveStructSchema(value as Record<string,defined>)
                 this.writeAs(struct,value)
                 return $tuple(this,struct)
             case "String":
@@ -2903,8 +2895,8 @@ class Component {
     */
     public readPrefixedString(offset? : number) {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
-        let enumValue = this.readU8(offset)
-        let enumName = Enumeration.fromValue(enumValue)
+        const enumValue = this.readU8(offset)
+        const enumName = Enumeration.fromValue(enumValue)
         const length = (this[`read${enumName}` as keyof unknown] as ReaderIndexCallback<number>)(offset + 1)
         const stringOffset = offset + 1 + Constants.REQUIRED_BYTES[enumName as keyof unknown]
         if(this.enableSafeVerificationMode) this.ensureReadable(stringOffset,length)
@@ -3824,7 +3816,7 @@ class Component {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         const length = this.readU8(offset)
         offset++;
-        let colorSequence : ColorSequenceKeypoint[] = []
+        const colorSequence : ColorSequenceKeypoint[] = []
         let index = 0
         for(const i of $range(1,length)) {
             if(this.enableSafeVerificationMode) this.ensureReadable(offset,4);
@@ -4116,14 +4108,13 @@ class Component {
     public readAs<T extends BitstreamTypes | unknown[]>(
         readType : T,
         offset? : number,
-        extra? : unknown // Mostly used for string len.
     ) : LuaTuple<[unknown,number]> {
         offset = (typeOf(offset) === "number" && (offset as number) <= this.offset ? offset : this.offset) as number
         const readTypeOf = typeOf(readType)
         let value = undefined
         switch (readTypeOf) {
             case "table":
-                let _tempReadType = (readType as BitstreamTableType)
+                const _tempReadType = (readType as BitstreamTableType)
                 const typeName = _tempReadType.Type
                 if(typeName === "Array") {
                     const [newSource,newOffset] = readArray(this,_tempReadType.Types,[],offset)
@@ -4301,7 +4292,7 @@ class Component {
     */
     public shrink() {
         if(bufflen(this.buffer) <= this.offset) return this;
-        let newBuffer = create(this.offset)
+        const newBuffer = create(this.offset)
         if(this.offset > 0) {
             copy(newBuffer,0,this.buffer,0,this.offset)
         }

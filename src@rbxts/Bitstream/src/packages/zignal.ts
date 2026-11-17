@@ -81,7 +81,7 @@ export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
     public Fire(...args : A) {
         let link = this._next
         while(link) {
-            let length = threads.size()
+            const length = threads.size()
             let __thread = undefined
             if(length === 0) {
                 __thread = coroutine.create(Yield)
@@ -100,7 +100,7 @@ export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
     * Yields until Fire is called. Once Fire is called, Wait resumes and returns the arguments passed to Fire.
     */
     public Wait() : A {
-        let thread = coroutine.running()
+        const thread = coroutine.running()
         let connection : unknown = undefined
         connection = this.Connect((...args : A) => {
             (connection as IConnection<A>).Disconnect()
@@ -115,7 +115,7 @@ export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
     * The callback function is invoked only once when Fire is called and will not be invoked on subsequent calls to Fire.
     */
     public Once(func : (...args : A) => void) : Connection<A> {
-       let connection : unknown
+       let connection : unknown = "..."
        connection = this.Connect((...args : A) => {
         (connection as Connection<A>).Disconnect()
         func(...args)
@@ -129,8 +129,8 @@ export class Signal<A extends unknown & Array<unknown>> implements ISignal<A> {
     * allowing Disconnect to be called at any time to terminate the connection.
     */
     public Connect(func : (...args : A) => void) : Connection<A> {
-        let _next_ = this._next
-        let link = {
+        const _next_ = this._next
+        const link = {
             Connected : true,
             _previous : this,
             _function : func,
@@ -183,7 +183,7 @@ class Connection<A extends Array<unknown>> implements IConnection<A> {
     */
     public Disconnect(): void {
         if(this.Connected) this.Connected = false;
-        let [_next_,_previous_] = [this._next,this._previous]
+        const [_next_,_previous_] = [this._next,this._previous]
         if(_next_) _next_._previous = _previous_;
         (_previous_ as IConnection<A>)._next = _next_
     }

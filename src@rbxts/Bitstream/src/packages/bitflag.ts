@@ -53,7 +53,7 @@ type IterateSubStruct = {
 
 // Function that swaps the order of the BitstreamEnumeration record, replacing BitstreamTypesName with numeric indices.
 function ReverseEnumerationIndex() : Record<number,BitstreamTypesName> {
-    let t : Record<number,BitstreamTypesName> = {}
+    const t : Record<number,BitstreamTypesName> = {}
     for(const [name,order] of pairs(Enumeration.BitstreamEnumeration)) {
         t[order] = name
     }    
@@ -62,7 +62,7 @@ function ReverseEnumerationIndex() : Record<number,BitstreamTypesName> {
 
 // Function that swaps the order of the markers, replacing ValidMarkerName with numeric indices.
 function ReverseMarkerIndex() : Record<number,ValidMarkerName> {
-    let t : Record<number,ValidMarkerName> = {}
+    const t : Record<number,ValidMarkerName> = {}
     for(const [name,order] of pairs(Bitflag.MARKER_VALUE)) {
         t[order] = name
     }
@@ -219,9 +219,9 @@ export abstract class Bitflag {
         param : ReadStructParameters 
     ) : LuaTuple<[Record<string,defined>,number?]> {
         let offset = param.sourceOffset || 0
-        let [schema,updatedOffset] = this.readMarkersInStruct(param)
+        const [schema,updatedOffset] = this.readMarkersInStruct(param)
         offset = updatedOffset
-        let formatted : Record<string,defined> = {}
+        const formatted : Record<string,defined> = {}
         let index = 0
         while(index < schema.size()) {
             const valueType = schema[index]
@@ -295,7 +295,7 @@ export abstract class Bitflag {
     * If a nested struct is detected, it writes a SUB_STRUCT_START&END marker.
     */
     private static writeStructField(param : WriteStructFieldParameters,key : string,value : unknown) {
-        let fieldType = Resolver.resolveValueType(value)
+        const fieldType = Resolver.resolveValueType(value)
         switch(fieldType) {
             case "Struct":
                 if(Resolver.containNestedStruct(value as Record<string,unknown>)) {
@@ -311,8 +311,8 @@ export abstract class Bitflag {
             case "Array":
                 this.writeMarker(param.markerBuffer,this.MARKER_VALUE.ARRAY_START)
                 this.writeString(param.fieldBuffer,key)
-                for(const [k,v] of pairs(value as object)) {
-                    let elementType = Resolver.resolveValueType(v)
+                for(const [_,v] of pairs(value as unknown[])) {
+                    const elementType = Resolver.resolveValueType(v)
                     this.writeFlag(
                         param.markerBuffer,
                         elementType,
@@ -353,7 +353,7 @@ export abstract class Bitflag {
     private static readMarkersInStruct(
         param : ReadStructParameters
     ) : LuaTuple<[ValidMarkerName[] | BitstreamTypesName[],number]> {
-        let schema : ValidMarkerName[] | BitstreamTypesName[] = []
+        const schema : ValidMarkerName[] | BitstreamTypesName[] = []
         let offset = param.sourceOffset || 0
         this.readMarker(param.sourceBuffer,offset)
         offset++;
@@ -422,7 +422,7 @@ export abstract class Bitflag {
                 break;
             case "Array":
                 elementMarkersBytes += 2 // ARRAY_START + ARRAY_END
-                for(const [k,v] of pairs(value as object)) {
+                for(const [_,v] of pairs(value as unknown[])) {
                     const valueType = Resolver.resolveValueType(v)
                     elementMarkersBytes += (1 + ((valueType === "String") ? 1 : 0))
                 }

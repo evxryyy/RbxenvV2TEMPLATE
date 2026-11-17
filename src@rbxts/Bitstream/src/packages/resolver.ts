@@ -106,11 +106,11 @@ export abstract class Resolver {
         source : defined[],
         callback : ResolveValueCallback
     ) {
-        let nestedArray : defined[] = []
+        const nestedArray : defined[] = []
         this.resolveArray(arrayTypes,(targetType,count,hasNestedFlag) => {
             if(count) {
                 for(let i = 0; i < count; i++) {
-                    let element = callback(targetType)
+                    const element = callback(targetType)
                     if(hasNestedFlag) {
                         nestedArray.insert(nestedArray.size(),element)
                     }
@@ -118,7 +118,7 @@ export abstract class Resolver {
                 }
             }
             else {
-                let element = callback(targetType)
+                const element = callback(targetType)
                 if(hasNestedFlag) {
                     nestedArray.insert(nestedArray.size(),element)
                 }
@@ -130,9 +130,9 @@ export abstract class Resolver {
     }
 
     private static catchCountPattern(elementType : Enumeration.BitstreamTypes) : LuaTuple<[Enumeration.BitstreamTypes,number?]> {
-        let typeHasCount = tonumber(strmatch(elementType as string,this.extractCountPattern)[0])
+        const typeHasCount = tonumber(strmatch(elementType as string,this.extractCountPattern)[0])
         if(typeHasCount) {
-            let formatted = strmatch(elementType as string,this.removeCountPattern)[0] as Enumeration.BitstreamTypes
+            const formatted = strmatch(elementType as string,this.removeCountPattern)[0] as Enumeration.BitstreamTypes
             return $tuple(formatted,typeHasCount);
         }
         return $tuple(elementType)
@@ -172,7 +172,7 @@ export abstract class Resolver {
     ) {
         switch(typeOf(element)) {
             case "table":
-                let _tempElementType = elementType as Enumeration.BitstreamTableType
+                const _tempElementType = elementType as Enumeration.BitstreamTableType
                 if(_tempElementType.Type === "Array") {
                     if(this.containNestedArray(_tempElementType.Types)) { error(this.ERROR_LIST.DEEPLY_NESTED_ARRAY) }
                     this.iterateNestedArray(_tempElementType as Enumeration.ArraySchema,element as A[],callback)
@@ -198,7 +198,7 @@ export abstract class Resolver {
             const element = callback(fieldType)
             return element
         }
-        let tableType = fieldType as Enumeration.BitstreamTableType
+        const tableType = fieldType as Enumeration.BitstreamTableType
         switch(tableType.Type) {
             case "Array":
                 const result : defined[] = []
@@ -227,7 +227,7 @@ export abstract class Resolver {
                     Length : (element as string).size()
                 }
             case "Array":
-                let subArray = this.resolveArraySchema(element as unknown[])
+                const subArray = this.resolveArraySchema(element as unknown[])
                 if(this.containNestedArray(subArray.Types)) {
                     error(this.ERROR_LIST.DEEPLY_NESTED_ARRAY)
                 }
@@ -235,9 +235,9 @@ export abstract class Resolver {
             case "Struct":
                 error(this.ERROR_LIST.ITERATE_STRUCT_IN_ARRAY)
             default:
-                let tryGetPrefixPart = this.getPrefixPartRegex(valueType)
+                const tryGetPrefixPart = this.getPrefixPartRegex(valueType)
                 if(typeIs(tryGetPrefixPart,"string")) {
-                    let option = this.getTechinalPartRegex(valueType)
+                    const option = this.getTechinalPartRegex(valueType)
                     // Reverse: ColorSequenceF32 back to {Type : ColorSequence,Option : F32}
                     return {
                         Type : tryGetPrefixPart as Enumeration.BitstreamTypesName,
@@ -259,8 +259,8 @@ export abstract class Resolver {
     public static containNestedArray(t : Enumeration.BitstreamTypes[]) {
         for(const elementType of t) {
             if(typeOf(elementType) === "table") {
-                let result = (elementType as Enumeration.BitstreamTableType)
-                let nestedFlag = result.Type === "Array" || result.Type === "Struct" ? true : false
+                const result = (elementType as Enumeration.BitstreamTableType)
+                const nestedFlag = result.Type === "Array" || result.Type === "Struct" ? true : false
                 if(nestedFlag) return nestedFlag; 
             }
         }
@@ -273,7 +273,7 @@ export abstract class Resolver {
     public static containNestedStruct(struct : Record<string,defined>) {
         for(const [_,field] of pairs(struct)) {
             if(typeOf(field) === "table") {
-                let nestedFlag = (field as Enumeration.BitstreamTableType).Type === "Struct" ? true : false
+                const nestedFlag = (field as Enumeration.BitstreamTableType).Type === "Struct" ? true : false
                 if(nestedFlag) return nestedFlag
             }
         }
@@ -296,7 +296,7 @@ export abstract class Resolver {
                 const [elementTypeName,hasCountPattern] = this.catchCountPattern(elementType)
                 if(hasCountPattern) {
                     let subArrayIndex = 0;
-                    let actualArrayIsNested = typeOf((array[arrayIndex])) === "table"
+                    const actualArrayIsNested = typeOf((array[arrayIndex])) === "table"
                     for(let i = 0; i < hasCountPattern; i++) {
                         if(actualArrayIsNested) {
                             callback(elementTypeName,((array[arrayIndex] as unknown) as A[])[subArrayIndex])
@@ -335,7 +335,7 @@ export abstract class Resolver {
         for(const [key,value] of pairs(struct.Fields)) {
             if(values[key] === undefined) continue;
             if(typeOf(value) === "table") {
-                let _TEMPValue = value as Enumeration.BitstreamTableType
+                const _TEMPValue = value as Enumeration.BitstreamTableType
                 if(_TEMPValue.Type === "Array") {
                     this.iterateArray(_TEMPValue.Types,values[key] as A[],callback)
                 }
@@ -365,28 +365,28 @@ export abstract class Resolver {
         isNested? : boolean
     ) {
         for(let i = 0; i < arrayTypes.size(); i++) {
-            let typeInfo = arrayTypes[i]
-            let _TEMPtypeInfo = typeInfo as Enumeration.BitstreamTableType
+            const typeInfo = arrayTypes[i]
+            const _TEMPtypeInfo = typeInfo as Enumeration.BitstreamTableType
             if(typeOf(typeInfo) === "table") {
-                let typeName = _TEMPtypeInfo.Type
+                const typeName = _TEMPtypeInfo.Type
                 if(typeName === "Struct") {
                     error(this.ERROR_LIST.ITERATE_STRUCT_IN_ARRAY)
                 }
                 else if(typeName === "Array") {
-                    let elementTypes = _TEMPtypeInfo.Types
+                    const elementTypes = _TEMPtypeInfo.Types
                     if(this.containNestedArray(elementTypes)) continue;
                     this.resolveArray(_TEMPtypeInfo.Types,callback,true)
                 }
                 else {
-                    let typeHasCount = tonumber(strmatch(_TEMPtypeInfo.Type,this.extractCountPattern)[0])
-                    let formattedType = strmatch(_TEMPtypeInfo.Type,this.removeCountPattern)[0]
+                    const typeHasCount = tonumber(strmatch(_TEMPtypeInfo.Type,this.extractCountPattern)[0])
+                    const formattedType = strmatch(_TEMPtypeInfo.Type,this.removeCountPattern)[0]
                     callback(formattedType as T,typeHasCount)
                 }
             }
             // Simples types or type with count that came from an array (i.e U8:3)
             else {
-                let elementTypeOf = strmatch(typeInfo as string,this.removeCountPattern)[0]
-                let typeHasCount = tonumber(strmatch(typeInfo as string,this.extractCountPattern)[0])
+                const elementTypeOf = strmatch(typeInfo as string,this.removeCountPattern)[0]
+                const typeHasCount = tonumber(strmatch(typeInfo as string,this.extractCountPattern)[0])
                 callback(elementTypeOf as T,typeHasCount,isNested)
             }
         }
@@ -402,7 +402,7 @@ export abstract class Resolver {
         struct : Enumeration.StructSchema,
         callback : ResolveValueCallback
     ) : Record<string,defined> {
-        let resolvedStruct : Record<string,defined> = {}
+        const resolvedStruct : Record<string,defined> = {}
         for(const [fieldName,fieldType] of pairs(struct.Fields)) {
             resolvedStruct[fieldName] = this.resolveField(fieldType,callback)
         }
@@ -418,14 +418,14 @@ export abstract class Resolver {
         value : defined
     ) : number {
         let bytes = 0
-        let _TEMPtypeInfo = typeInfo as Enumeration.BitstreamTableType
+        const _TEMPtypeInfo = typeInfo as Enumeration.BitstreamTableType
         if(typeOf(typeInfo) === "table") {
-            let extra = (_TEMPtypeInfo.Length || _TEMPtypeInfo.Option)
-            let expressionIndex = Constants.REQUIRED_BYTES[_TEMPtypeInfo.Type as keyof defined] as ConstantsIndexCallback
+            const extra = (_TEMPtypeInfo.Length || _TEMPtypeInfo.Option)
+            const expressionIndex = Constants.REQUIRED_BYTES[_TEMPtypeInfo.Type as keyof defined] as ConstantsIndexCallback
             bytes += expressionIndex(value,extra)
         }
         else {
-            let elementIndex = Constants.REQUIRED_BYTES[typeInfo as keyof defined] as unknown
+            const elementIndex = Constants.REQUIRED_BYTES[typeInfo as keyof defined] as unknown
             if(typeIs(elementIndex,"function")) {
                 bytes += elementIndex(value)
             }
@@ -464,7 +464,7 @@ export abstract class Resolver {
                 break;
             default:
                 let enumerationName = "" 
-                let mappedTypes = this.MAPPED_RBX_TYPES[valueType as keyof defined]
+                const mappedTypes = this.MAPPED_RBX_TYPES[valueType as keyof defined]
                 if(typeOf(mappedTypes) === "string") {
                     enumerationName = mappedTypes as string
                 }
@@ -481,12 +481,12 @@ export abstract class Resolver {
     * preserving the original order as closely as possible.
     */
     public static resolveArraySchema<T>(array : T[]) : Enumeration.ArraySchema {
-        let schema = {
+        const schema = {
             Type : "Array",
             Types : [] as Enumeration.BitstreamTypes[],
         } as Enumeration.ArraySchema
         for(let i = 0; i < array.size(); i++) {
-            let element = this.resolveElement(array[i])
+            const element = this.resolveElement(array[i])
             tblinsert(schema.Types,element)
         }
         return schema
@@ -497,7 +497,7 @@ export abstract class Resolver {
     * preserving the order of its corresponding keys.
     */
     public static resolveStructSchema(struct : Record<string,defined>) : Enumeration.StructSchema {
-        let schema = {
+        const schema = {
             Type : "Struct",
             Fields : {} as Record<string,defined>
         }
