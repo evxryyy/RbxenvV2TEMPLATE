@@ -49,7 +49,7 @@ const writevectorf32x2 = buffer.writevectorf32x2; const writevectorf32x3 = buffe
 const readvectorf32x2 = buffer.readvectorf32x2; const readvectorf32x3 = buffer.readvectorf32x3
 
 // math api
-const modf = math.modf; const floor = math.floor
+const floor = math.floor
 const clamp = math.clamp;
 const round = math.round; const abs = math.abs
 
@@ -460,8 +460,7 @@ class Component {
     * @since v1.0
     */
     public writeI8(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.I8)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.I8);
         writei8(this.buffer,this.offset,value);
         this.offset += 1
         this.offsetChanged.Fire(this.offset)
@@ -477,8 +476,7 @@ class Component {
     * @since v1.0
     */
     public writeI16(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.I16)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.I16);
         writei16(this.buffer,this.offset,value)
         this.offset += 2
         this.offsetChanged.Fire(this.offset)
@@ -487,7 +485,6 @@ class Component {
 
     /*
     * Write a signed 24-bit integer (-8,388,608 to 8,388,607).
-    * - Clamped and truncated.
     * - 3 bytes, big-endian manual packing.
     *
     * @Parameter(s): number
@@ -496,9 +493,7 @@ class Component {
     * @since v1.0
     */
     public writeI24(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.I24)
-        value = clamp(modf(value)[0],Constants.MIN_INT24,Constants.MAX_INT24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.I24);
         writeu8(this.buffer,this.offset,bit32.extract(value,16,8))
         writeu8(this.buffer,this.offset + 1,bit32.extract(value,8,8))
         writeu8(this.buffer,this.offset + 2,bit32.extract(value,0,8))
@@ -516,8 +511,7 @@ class Component {
     * @since v1.0
     */    
     public writeI32(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.I32)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.I32);
         writei32(this.buffer,this.offset,value)
         this.offset += 4
         this.offsetChanged.Fire(this.offset)
@@ -526,7 +520,6 @@ class Component {
 
     /*
     * Write a signed 40-bit integer (-549,755,813,888 to 549,755,813,887).
-    * - Clamped and truncated.
     * - If negative, add 2^40 to represent as unsigned (two's complement style) before writing.
     * - 5 bytes, big-endian manual packing.
     * 
@@ -536,16 +529,15 @@ class Component {
     * @since v1.0
     */ 
     public writeI40(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.I40)
-        value = clamp(modf(value)[0],Constants.MIN_INT40,Constants.MAX_INT40)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.I40);
         // Convert negative to unsigned representation over 40 bits (two's complement range)
         if(value < 0) value += fbit40;
         writeu8(this.buffer,this.offset,floor(value / fbit32) % fbit8)
-        writeu8(this.buffer,this.offset + 1,bit32.extract(value % fbit32,24,8))
-        writeu8(this.buffer,this.offset + 2,bit32.extract(value % fbit32,16,8))
-        writeu8(this.buffer,this.offset + 3,bit32.extract(value % fbit32,8,8))
-        writeu8(this.buffer,this.offset + 4,bit32.extract(value % fbit32,0,8))
+        const remainder = value % fbit32
+        writeu8(this.buffer,this.offset + 1,bit32.extract(remainder,24,8))
+        writeu8(this.buffer,this.offset + 2,bit32.extract(remainder,16,8))
+        writeu8(this.buffer,this.offset + 3,bit32.extract(remainder,8,8))
+        writeu8(this.buffer,this.offset + 4,bit32.extract(remainder,0,8))
         this.offset += 5
         this.offsetChanged.Fire(this.offset)
         return this
@@ -553,7 +545,6 @@ class Component {
 
     /*
     * Write a signed 48-bit integer (-140,737,488,355,328 to 140,737,488,355,327).
-    * - Clamped and truncated.
     * - If negative, add 2^48 to represent as unsigned before writing.
     * - 6 bytes, big-endian manual packing.
     * 
@@ -563,18 +554,17 @@ class Component {
     * @since v1.0
     */
     public writeI48(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.I48)
-        value = clamp(modf(value)[0],Constants.MIN_INT48,Constants.MAX_INT48)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.I48);
         // Represent as 48-bit unsigned for storage
         if(value < 0) value += fbit48;
         // Big-endian packing: 6 bytes MSB -> LSB
         writeu8(this.buffer,this.offset,floor(value / fbit40) % fbit8)
         writeu8(this.buffer,this.offset + 1,floor(value / fbit32) % fbit8)
-        writeu8(this.buffer,this.offset + 2,bit32.extract(value % fbit32,24,8))
-        writeu8(this.buffer,this.offset + 3,bit32.extract(value % fbit32,16,8))
-        writeu8(this.buffer,this.offset + 4,bit32.extract(value % fbit32,8,8))
-        writeu8(this.buffer,this.offset + 5,bit32.extract(value % fbit32,0,8))
+        const remainder = value % fbit32
+        writeu8(this.buffer,this.offset + 2,bit32.extract(remainder,24,8))
+        writeu8(this.buffer,this.offset + 3,bit32.extract(remainder,16,8))
+        writeu8(this.buffer,this.offset + 4,bit32.extract(remainder,8,8))
+        writeu8(this.buffer,this.offset + 5,bit32.extract(remainder,0,8))
         this.offset += 6
         this.offsetChanged.Fire(this.offset)
         return this
@@ -582,7 +572,6 @@ class Component {
 
     /*
     * Write a signed 54-bit integer (-9,007,199,254,740,992 to 9,007,199,254,740,991).
-    * - Clamped and truncated.
     * - If negative, add 2^54 to represent as unsigned before writing.
     * - 7 bytes, big-endian manual packing.
     * 
@@ -592,19 +581,18 @@ class Component {
     * @since v1.0
     */
     public writeI54(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.I54)
-        value = clamp(modf(value)[0],Constants.MIN_INT54,Constants.MAX_INT54)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.I54);
         // Represent as 54-bit unsigned for storage
         if(value < 0) value += fbit54
         // Big-endian packing: 7 bytes MSB -> LSB
         writeu8(this.buffer,this.offset,floor(value / fbit48) % fbit8)
         writeu8(this.buffer,this.offset + 1,floor(value / fbit40) % fbit8)
         writeu8(this.buffer,this.offset + 2,floor(value / fbit32) % fbit8)
-        writeu8(this.buffer,this.offset + 3,bit32.extract(value % fbit32,24,8))
-        writeu8(this.buffer,this.offset + 4,bit32.extract(value % fbit32,16,8))
-        writeu8(this.buffer,this.offset + 5,bit32.extract(value % fbit32,8,8))
-        writeu8(this.buffer,this.offset + 6,bit32.extract(value % fbit32,0,8))
+        const remainder = value % fbit32
+        writeu8(this.buffer,this.offset + 3,bit32.extract(remainder,24,8))
+        writeu8(this.buffer,this.offset + 4,bit32.extract(remainder,16,8))
+        writeu8(this.buffer,this.offset + 5,bit32.extract(remainder,8,8))
+        writeu8(this.buffer,this.offset + 6,bit32.extract(remainder,0,8))
         this.offset += 7
         this.offsetChanged.Fire(this.offset)
         return this
@@ -612,7 +600,6 @@ class Component {
 
     /*
     * Write an signed `I-bit` integer.
-    * - Clamped and truncated.
     * - min[I8] - max[I54] 
     * 
     * @Parameter(s): number
@@ -621,14 +608,8 @@ class Component {
     * @since v4.0
     */
     public writeInt(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        const bytesData = Utilities.getEquivalentBytesInfoFromNumber(value)
-        value = clamp(
-            modf(value)[0],
-            Constants["MIN_INT" + bytesData.bytes * 8 as keyof unknown],
-            Constants["MAX_INT" + bytesData.bytes * 8 as keyof unknown]
-        );
-        return (this[`writeI${bytesData.bytes * 8}` as keyof unknown] as WriterIndexCallback)(value)
+        const bytesData = Utilities.getEquivalentBytesInfoFromNumber(value,true)
+        return (this[`writeI${bytesData.bits}` as keyof unknown] as WriterIndexCallback)(value)
     }
 
     //#endregion
@@ -645,8 +626,7 @@ class Component {
     * @since v1.3
     */
     public writeU1(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.U1)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.U1);
         writebits(this.buffer,this.offset * 8,1,(value > 1) ? 1 : 0)
         this.offset += 1
         this.offsetChanged.Fire(this.offset)
@@ -662,8 +642,7 @@ class Component {
     * @since v1.0
     */
     public writeU8(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.U8)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.U8);
         writeu8(this.buffer,this.offset,value)
         this.offset += 1
         this.offsetChanged.Fire(this.offset)
@@ -679,8 +658,7 @@ class Component {
     * @since v1.0
     */
     public writeU16(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.U16)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.U16);
         writeu16(this.buffer,this.offset,value)
         this.offset += 2
         this.offsetChanged.Fire(this.offset)
@@ -698,9 +676,7 @@ class Component {
     * @since v1.0
     */
     public writeU24(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.U24)
-        value = clamp(modf(value)[0],Constants.MIN_UINT,Constants.MAX_UINT24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.U24);
         // Big-endian manual packing
         writeu8(this.buffer,this.offset,bit32.extract(value,16,8))
         writeu8(this.buffer,this.offset + 1,bit32.extract(value,8,8))
@@ -718,8 +694,7 @@ class Component {
     * @lastest modification : v4.0
     */
     public writeU32(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.U32)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.U32);
         writeu32(this.buffer,this.offset,value)
         this.offset += 4
         this.offsetChanged.Fire(this.offset)
@@ -735,9 +710,7 @@ class Component {
     * @since v1.0
     */
     public writeU40(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.U40)
-        value = clamp(modf(value)[0],Constants.MIN_UINT,Constants.MAX_UINT40)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.U40);
         // Big-endian manual packing
         const remainder = value % fbit32
         writeu8(this.buffer,this.offset,floor(remainder) % fbit8)
@@ -750,17 +723,25 @@ class Component {
         return this
     }
 
+    /*
+    * Write an unsigned 48-bit integer (0 to 281,474,976,710,655).
+    * - 6 bytes, big-endian manual packing.
+    * 
+    * @Parameter(s): number
+    * 
+    * @lastest modification : v4.0
+    * @since v1.0
+    */
     public writeU48(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.U48)
-        value = clamp(modf(value)[0],Constants.MIN_UINT,Constants.MAX_UINT48)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.U48);
         // Big-endian packing: 6 bytes MSB -> LSB
         writeu8(this.buffer,this.offset,floor(value / fbit40) % fbit8)
         writeu8(this.buffer,this.offset + 1,floor(value / fbit32) % fbit8)
-        writeu8(this.buffer,this.offset + 2,bit32.extract(value % fbit32,24,8))
-        writeu8(this.buffer,this.offset + 3,bit32.extract(value % fbit32,16,8))
-        writeu8(this.buffer,this.offset + 4,bit32.extract(value % fbit32,8,8))
-        writeu8(this.buffer,this.offset + 5,bit32.extract(value % fbit32,0,8))
+        const remainder = value % fbit32
+        writeu8(this.buffer,this.offset + 2,bit32.extract(remainder,24,8))
+        writeu8(this.buffer,this.offset + 3,bit32.extract(remainder,16,8))
+        writeu8(this.buffer,this.offset + 4,bit32.extract(remainder,8,8))
+        writeu8(this.buffer,this.offset + 5,bit32.extract(remainder,0,8))
         this.offset += 6
         this.offsetChanged.Fire(this.offset)
         return this
@@ -768,7 +749,6 @@ class Component {
     
     /*
     * Write an unsigned 54-bit integer (0 to 18,014,398,509,481,980).
-    * - Clamped and truncated.
     * - 7 bytes, big-endian manual packing.
     * 
     * @Parameter(s): number
@@ -777,17 +757,16 @@ class Component {
     * @since v1.0
     */
     public writeU54(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.U54)
-        value = clamp(modf(value)[0],Constants.MIN_UINT,Constants.MAX_UINT54)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.U54);
         // Big-endian packing: 7 bytes MSB -> LSB
         writeu8(this.buffer,this.offset,floor(value / fbit48) % fbit8)
         writeu8(this.buffer,this.offset + 1,floor(value / fbit40) % fbit8)
         writeu8(this.buffer,this.offset + 2,floor(value / fbit32) % fbit8)
-        writeu8(this.buffer,this.offset + 3,bit32.extract(value % fbit32,24,8))
-        writeu8(this.buffer,this.offset + 4,bit32.extract(value % fbit32,16,8))
-        writeu8(this.buffer,this.offset + 5,bit32.extract(value % fbit32,8,8))
-        writeu8(this.buffer,this.offset + 6,bit32.extract(value % fbit32,0,8))
+        const remainder = value % fbit32
+        writeu8(this.buffer,this.offset + 3,bit32.extract(remainder,24,8))
+        writeu8(this.buffer,this.offset + 4,bit32.extract(remainder,16,8))
+        writeu8(this.buffer,this.offset + 5,bit32.extract(remainder,8,8))
+        writeu8(this.buffer,this.offset + 6,bit32.extract(remainder,0,8))
         this.offset += 7
         this.offsetChanged.Fire(this.offset)
         return this
@@ -795,7 +774,6 @@ class Component {
 
     /*
     * Write an unsigned `N-bit` integer.
-    * - Clamped and truncated.
     * - min[U1] - max[U54] 
     * 
     * @Parameter(s): number
@@ -804,14 +782,8 @@ class Component {
     * @since v4.0
     */
     public writeUInt(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        const bytesData = Utilities.getEquivalentBytesInfoFromNumber(value)
-        value = clamp(
-            modf(value)[0],
-            Constants.MIN_UINT,
-            Constants["MAX_UINT" + bytesData.bytes * 8 as keyof unknown]
-        );
-        return (this[`writeU${bytesData.bytes * 8}` as keyof unknown] as WriterIndexCallback)(value)
+        const bytesData = Utilities.getEquivalentBytesInfoFromNumber(value,true)
+        return (this[`writeU${bytesData.bits}` as keyof unknown] as WriterIndexCallback)(value)
     }
 
     //#endregion
@@ -828,8 +800,7 @@ class Component {
     * @since v4.0
     */
     public writeF8(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.F8)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.F8);
         writeu8(this.buffer,this.offset,Extensions.encodeF8(value))
         this.offset += 1
         this.offsetChanged.Fire(this.offset)
@@ -847,8 +818,7 @@ class Component {
     * @since v1.0
     */
     public writeF16(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.F16)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.F16);
         const [uint16] = Extensions.toFloat16(value)
         writeu16(this.buffer,this.offset,uint16)
         this.offset += 2
@@ -867,8 +837,7 @@ class Component {
     * @since v4.0
     */
     public writeF24(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.F24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.F24);
         const fp24 = Extensions.encodeF24(value)
         writeu8(this.buffer,this.offset,bit32.extract(fp24,16,8))
         writeu8(this.buffer,this.offset + 1,bit32.extract(fp24,8,8))
@@ -889,8 +858,7 @@ class Component {
     * @since v1.0
     */
     public writeF32(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.F32)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.F32);
         writef32(this.buffer,this.offset,value)
         this.offset += 4
         this.offsetChanged.Fire(this.offset)
@@ -907,8 +875,7 @@ class Component {
     * @since v1.0
     */
     public writeF64(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        this.ensureWritable(Constants.REQUIRED_BYTES.F64)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.F64);
         writef64(this.buffer,this.offset,value)
         this.offset += 8
         this.offsetChanged.Fire(this.offset)
@@ -925,10 +892,9 @@ class Component {
     * @since v4.0
     */
     public writeFloat(value : number) : Component {
-        assert(typeOf(value) === "number","Type-missmatch first arguments is expected to be a number")
-        const bytesData = Utilities.getEquivalentBytesInfoFromNumber(value)
+        const bytesData = Utilities.getEquivalentBytesInfoFromNumber(value,true)
         if(bytesData.bytes > 4 && bytesData.bytes <= 7) return this.writeF32(value);
-        return (this[`writeF${bytesData.bytes * 8}` as keyof unknown] as WriterIndexCallback)(value)
+        return (this[`writeF${bytesData.bits}` as keyof unknown] as WriterIndexCallback)(value)
     }
 
     //#endregion
@@ -946,9 +912,8 @@ class Component {
     * @since v1.0
     */
     public writeString(value : string){
-        assert(typeOf(value) === "string","First arguments is expected to be a string")
         const length = value.size()
-        this.ensureWritable(length)
+        if(this.enableSafeVerificationMode) this.ensureWritable(length);
         writestring(this.buffer,this.offset,value,length)
         this.offset += length
         this.offsetChanged.Fire(this.offset)
@@ -965,8 +930,6 @@ class Component {
     * @since v4.0
     */
     public writePrefixedString(value : string){
-        assert(typeOf(value) === "string","First arguments is expected to be a string")
-        this.ensureWritable(Constants.REQUIRED_BYTES.PrefixedString(value))
         const length = value.size()
         const bytesData = Utilities.getEquivalentBytesInfoFromNumber(length,true)
         this.writeU8(Enumeration.BitstreamEnumeration[`U${bytesData.bits}` as keyof unknown])
@@ -989,7 +952,7 @@ class Component {
     * @since v1.0
     */
     public writeBool1(value : defined) {
-        this.ensureWritable(Constants.REQUIRED_BYTES.Bool1)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Bool1);
         writebits(this.buffer,this.offset * 8,1,(value) ? 1 : 0)
         this.offset += 1
         this.offsetChanged.Fire(this.offset)
@@ -1001,14 +964,13 @@ class Component {
     * - Accepts an array-like table of up to 8 values.
     * - Each truthy value sets the corresponding bit to 1.
     * 
-    * @Parameter(s): [define] (Array that only contains defined values)
+    * @Parameter(s): defined[] (Array that only contains defined values)
     * 
     * @lastest modification : v4.0
     * @since v1.0
     */
-    public writeBool8(value : [defined]) {
-        assert(typeOf(value) === "table","First arguments is expected to be a table")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Bool8)
+    public writeBool8(value : defined[]) {
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Bool8);
         value.forEach((element) => {
             writebits(this.buffer,this.offset * 8 + 1,1,(element) ? 1 : 0)
         })
@@ -1035,8 +997,7 @@ class Component {
     * @since v4.0
     */
     public writeVector2float24(value : Vector2) {
-        assert(typeOf(value) === "Vector2","First arguments is expected to be a Vector2")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector2float24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector2float24);
         writeNfp24(this.buffer,[value.X,value.Y],this.offset)
         this.offset += 6
         this.offsetChanged.Fire(this.offset)
@@ -1053,8 +1014,7 @@ class Component {
     * @since v4.0
     */
     public writeVector2float32(value : Vector2) {
-        assert(typeOf(value) === "Vector2","First arguments is expected to be a Vector2")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector2float32)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector2float32);
         writevectorf32x2(this.buffer,this.offset,vector.create(value.X,value.Y,0))
         this.offset += 8
         this.offsetChanged.Fire(this.offset)
@@ -1071,8 +1031,7 @@ class Component {
     * @since v1.0
     */
     public writeVector2int16(value : Vector2int16) {
-        assert(typeOf(value) === "Vector2int16","First arguments is expected to be a Vector2int16")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector2int16)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector2int16);
         writei16(this.buffer,this.offset,value.X)
         writei16(this.buffer,this.offset + 2,value.Y)
         this.offset += 4
@@ -1090,14 +1049,9 @@ class Component {
     * @since v4.0
     */
     public writeVector2uint16(value : Vector2) {
-        assert(typeOf(value) === "Vector2","First arguments is expected to be a Vector2")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector2uint16)
-        const [x,y] = [
-            clamp(modf(value.X)[0],Constants.MIN_UINT,Constants.MAX_UINT16),
-            clamp(modf(value.Y)[0],Constants.MIN_UINT,Constants.MAX_UINT16)
-        ]
-        writeu16(this.buffer,this.offset,x)
-        writeu16(this.buffer,this.offset + 2,y)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector2uint16);
+        writeu16(this.buffer,this.offset,value.X)
+        writeu16(this.buffer,this.offset + 2,value.Y)
         this.offset += 4
         this.offsetChanged.Fire(this.offset)
         return this
@@ -1113,8 +1067,7 @@ class Component {
     * @since v1.0
     */
     public writeVector2(value : Vector2) {
-        assert(typeOf(value) === "Vector2","First arguments is expected to be a Vector2")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector2)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector2);
         writef64(this.buffer,this.offset,value.X)
         writef64(this.buffer,this.offset + 8,value.Y)
         this.offset += 16
@@ -1136,8 +1089,7 @@ class Component {
     * @since v4.0
     */
     public writeVector3float24(value : Vector3) {
-        assert(typeOf(value) === "Vector3","First arguments is expected to be a Vector3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector3float24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector3float24);
         writeNfp24(this.buffer,[value.X,value.Y,value.Z],this.offset)
         this.offset += 9
         this.offsetChanged.Fire(this.offset)
@@ -1154,10 +1106,8 @@ class Component {
     * @since v4.0
     */
     public writeVector3float32(value : Vector3) {
-        assert(typeOf(value) === "Vector3","First arguments is expected to be a Vector3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector3float32)
-        const [x,y,z] = [value.X,value.Y,value.Z]
-        writevectorf32x3(this.buffer,this.offset,vector.create(x,y,z))
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector3float32);
+        writevectorf32x3(this.buffer,this.offset,vector.create(value.X,value.Y,value.Z))
         this.offset += 12
         this.offsetChanged.Fire(this.offset)
         return this
@@ -1173,12 +1123,10 @@ class Component {
     * @since v1.0
     */
     public writeVector3int16(value : Vector3int16) {
-        assert(typeOf(value) === "Vector3int16","First arguments is expected to be a Vector3int16")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector3int16)
-        const [x,y,z] = [value.X,value.Y,value.Z]
-        writei16(this.buffer,this.offset,x)
-        writei16(this.buffer,this.offset + 2,y)
-        writei16(this.buffer,this.offset + 4,z)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector3int16);
+        writei16(this.buffer,this.offset,value.X)
+        writei16(this.buffer,this.offset + 2,value.Y)
+        writei16(this.buffer,this.offset + 4,value.Z)
         this.offset += 6
         this.offsetChanged.Fire(this.offset)
         return this
@@ -1194,16 +1142,10 @@ class Component {
     * @since v4.0
     */
     public writeVector3uint16(value : Vector3) {
-        assert(typeOf(value) === "Vector3","First arguments is expected to be a Vector3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector3uint16)
-        const [x,y,z] = [
-            clamp(modf(value.X)[0],Constants.MIN_UINT,Constants.MAX_INT16),
-            clamp(modf(value.Y)[0],Constants.MIN_UINT,Constants.MAX_INT16),
-            clamp(modf(value.Z)[0],Constants.MIN_UINT,Constants.MAX_INT16),
-        ]
-        writeu16(this.buffer,this.offset,x)
-        writeu16(this.buffer,this.offset + 2,y)
-        writeu16(this.buffer,this.offset + 4,z)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector3uint16);
+        writeu16(this.buffer,this.offset,value.X)
+        writeu16(this.buffer,this.offset + 2,value.Y)
+        writeu16(this.buffer,this.offset + 4,value.Z)
         this.offset += 6
         this.offsetChanged.Fire(this.offset)
         return this
@@ -1219,8 +1161,7 @@ class Component {
     * @since v1.0
     */
     public writeVector3(value : Vector3) {
-        assert(typeOf(value) === "Vector3","First arguments is expected to be a Vector3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Vector3)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Vector3);
         writef64(this.buffer,this.offset,value.X)
         writef64(this.buffer,this.offset + 8,value.Y)
         writef64(this.buffer,this.offset + 16,value.Z)
@@ -1244,8 +1185,7 @@ class Component {
     * @since v4.0
     */
     public writeCFrameQuaternion(value : CFrame) {
-        assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
-        this.ensureWritable(Constants.REQUIRED_BYTES.CFrameQuaternion)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.CFrameQuaternion);
         const pos = value.Position
         const [axis,angle] = value.ToAxisAngle()
         // Position
@@ -1272,8 +1212,7 @@ class Component {
     * @since v4.0
     */
     public writeCFrameF24(value : CFrame){
-        assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
-        this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF24);
         const pos = value.Position
         const [rx,ry,rz] = value.ToEulerAnglesXYZ()
         writeNfp24(this.buffer,[
@@ -1296,8 +1235,7 @@ class Component {
     * @since v4.0
     */
     public writeCFrameF32(value : CFrame) {
-        assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
-        this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF32)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF32);
         const pos = value.Position
         const [rx,ry,rz] = value.ToEulerAnglesXYZ()
         writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
@@ -1324,8 +1262,7 @@ class Component {
     * @since v4.0
     */
     public writeCFrameQuantized(value : CFrame) {
-        assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
-        this.ensureWritable(Constants.REQUIRED_BYTES.CFrameQuantized)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.CFrameQuantized);
         const pos = value.Position
         const [rx,ry,rz] = value.ToEulerAnglesXYZ()
         writei16(this.buffer,this.offset,clamp(round(pos.X * POSITION_SCALE),Constants.MIN_INT16,Constants.MAX_INT16))
@@ -1350,8 +1287,7 @@ class Component {
     * @since v4.0
     */
     public writeCFrameF64(value : CFrame) {
-        assert(typeOf(value) === "CFrame","First arguments is expected to be a CFrame")
-        this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF64)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.CFrameF64);
         const pos = value.Position
         const [rx,ry,rz] = value.ToEulerAnglesXYZ()
         writef64(this.buffer,this.offset,pos.X)
@@ -1382,8 +1318,7 @@ class Component {
     * @since v1.0
     */
     public writeUDim(value : UDim){
-        assert(typeOf(value) === "UDim","First arguments is expected to be a UDim")
-        this.ensureWritable(Constants.REQUIRED_BYTES.UDim)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.UDim);
         writef32(this.buffer,this.offset,value.Scale)
         writei32(this.buffer,this.offset + 4,value.Offset)
         this.offset += 8
@@ -1402,8 +1337,7 @@ class Component {
     * @since v1.0
     */
     public writeUDim2(value : UDim2) {
-        assert(typeOf(value) === "UDim2","First arguments is expected to be a UDim2")
-        this.ensureWritable(Constants.REQUIRED_BYTES.UDim2)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.UDim2);
         writef32(this.buffer,this.offset,value.X.Scale)
         writei32(this.buffer,this.offset + 4,value.X.Offset)
         writef32(this.buffer,this.offset + 8,value.Y.Scale)
@@ -1430,8 +1364,7 @@ class Component {
     * @since v1.0
     */
     public writeColor3(value : Color3) {
-        assert(typeOf(value) === "Color3","First arguments is expected to be a Color3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Color3)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Color3);
         writeu8(this.buffer,this.offset,round(value.R * 255))
         writeu8(this.buffer,this.offset + 1,round(value.G * 255))
         writeu8(this.buffer,this.offset + 2,round(value.B * 255))
@@ -1451,8 +1384,7 @@ class Component {
     * @since v4.0
     */
     public writeColor3F24(value : Color3) {
-        assert(typeOf(value) === "Color3","First arguments is expected to be a Color3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Color3F24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Color3F24);
         writeNfp24(this.buffer,[value.R,value.G,value.B],this.offset)
         this.offset += 3
         this.offsetChanged.Fire(this.offset)
@@ -1470,8 +1402,7 @@ class Component {
     * @since v1.0
     */
     public writeColor3F32(value : Color3) {
-        assert(typeOf(value) === "Color3","First arguments is expected to be a Color3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Color3F32)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Color3F32);
         writef32(this.buffer,this.offset,value.R)
         writef32(this.buffer,this.offset + 4,value.G)
         writef32(this.buffer,this.offset + 8,value.B)
@@ -1491,8 +1422,7 @@ class Component {
     * @since v1.0
     */
     public writeColor3F64(value : Color3) {
-        assert(typeOf(value) === "Color3","First arguments is expected to be a Color3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Color3F64)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Color3F64);
         writef64(this.buffer,this.offset,value.R)
         writef64(this.buffer,this.offset + 8,value.G)
         writef64(this.buffer,this.offset + 16,value.B)
@@ -1515,8 +1445,7 @@ class Component {
     * @since v4.0
     */
     public writeRectFloat24(value : Rect) {
-        assert(typeOf(value) === "Rect","First arguments is expected to be a Rect")
-        this.ensureWritable(Constants.REQUIRED_BYTES.RectFloat24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.RectFloat24);
         writeNfp24(this.buffer,[
             value.Min.X,value.Min.Y,
             value.Max.X,value.Max.Y,
@@ -1536,8 +1465,7 @@ class Component {
     * @since v4.0
     */
     public writeRectFloat32(value : Rect) {
-        assert(typeOf(value) === "Rect","First arguments is expected to be a Rect")
-        this.ensureWritable(Constants.REQUIRED_BYTES.RectFloat32)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.RectFloat32);
         writevectorf32x2(this.buffer,this.offset,vector.create(value.Min.X,value.Min.Y,0))
         writevectorf32x2(this.buffer,this.offset + 8,vector.create(value.Max.X,value.Max.Y,0))
         this.offset += 16
@@ -1555,8 +1483,7 @@ class Component {
     * @since v1.0
     */
     public writeRect(value : Rect) {
-        assert(typeOf(value) === "Rect","First arguments is expected to be a Rect")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Rect)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Rect);
         writef64(this.buffer,this.offset,value.Min.X)
         writef64(this.buffer,this.offset + 8,value.Min.Y)
         writef64(this.buffer,this.offset + 16,value.Max.X)
@@ -1582,8 +1509,7 @@ class Component {
     * @since v1.0
     */
     public writeRegion3(value : Region3){
-        assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Region3)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Region3)
         const [size,cf] = [value.Size,value.CFrame]
         const pos = cf.Position
         const [rx,ry,rz] = cf.ToEulerAnglesXYZ()
@@ -1614,8 +1540,7 @@ class Component {
     * @since v4.0
     */
     public writeRegion3Quaternion(value : Region3) {
-        assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Region3Quaternion)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Region3Quaternion)
         const [size,cf] = [value.Size,value.CFrame]
         const pos = cf.Position
         const [axis,angle] = cf.ToAxisAngle()
@@ -1646,8 +1571,7 @@ class Component {
     * @since v4.0
     */
     public writeRegion3CFrameF24(value : Region3) {
-        assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Region3CFrameF24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Region3CFrameF24);
         const [size,cf] = [value.Size,value.CFrame]
         const pos = cf.Position
         const [rx,ry,rz] = cf.ToEulerAnglesXYZ()
@@ -1675,16 +1599,13 @@ class Component {
     * @since v4.0
     */
     public writeRegion3CFrameF32(value : Region3) {
-        assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Region3CFrameF32)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Region3CFrameF32);
         const [size,cf] = [value.Size,value.CFrame]
         const pos = cf.Position
         const [rx,ry,rz] = cf.ToEulerAnglesXYZ()
         // CFrame
         writevectorf32x3(this.buffer,this.offset,vector.create(pos.X,pos.Y,pos.Z))
-        writef32(this.buffer,this.offset + 12,rx)
-        writef32(this.buffer,this.offset + 16,ry)
-        writef32(this.buffer,this.offset + 20,rz)
+        writevectorf32x3(this.buffer,this.offset,vector.create(rx,ry,rz))
         // Size
         writef64(this.buffer,this.offset + 24,size.X)
         writef64(this.buffer,this.offset + 32,size.Y)
@@ -1703,8 +1624,7 @@ class Component {
     * @since v1.0
     */
     public writeRegion3int16(value : Region3int16) {
-        assert(typeOf(value) === "Region3int16","First arguments is expected to be a Region3int16")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Region3int16)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Region3int16);
         const [min,max] = [value.Min,value.Max]
         // Min
         writei16(this.buffer,this.offset,min.X)
@@ -1733,8 +1653,7 @@ class Component {
     * @since v4.0
     */
     public writeRegion3Quantized(value : Region3) {
-        assert(typeOf(value) === "Region3","First arguments is expected to be a Region3")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Region3Quantized)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Region3Quantized);
         const [size,cf] = [value.Size,value.CFrame]
         const pos = cf.Position
         const [rx,ry,rz] = cf.ToEulerAnglesXYZ()
@@ -1768,10 +1687,8 @@ class Component {
     * @since v1.0
     */
     public writeEnum(value : EnumItem) {
-        assert(typeOf(value) === "EnumItem","First arguments is expected to be a EnumItem")
-        this.ensureWritable(Constants.REQUIRED_BYTES.Enum)
-        const id = Constants.EnumItemIndex[value as keyof unknown] as number
-        writeu16(this.buffer,this.offset,id)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.Enum);
+        writeu16(this.buffer,this.offset,Constants.EnumItemIndex[value as keyof unknown] as number)
         this.offset += 2
         this.offsetChanged.Fire(this.offset)
         return this
@@ -1793,9 +1710,8 @@ class Component {
     * @since v1.0
     */
     public writeRotationCurveKey(value : RotationCurveKey) {
-        assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
         const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"Normal")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
         const pos = value.Value.Position
         const [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
@@ -1835,9 +1751,8 @@ class Component {
     * @since v4.0
     */
     public writeRotationCurveKeyQuaternion(value : RotationCurveKey) {
-        assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
         const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"Quaternion")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
         const pos = value.Value.Position
         const [axis,angle] = value.Value.ToAxisAngle()
@@ -1877,9 +1792,8 @@ class Component {
     * @since v4.0
     */
     public writeRotationCurveKeyCFrameF24(value : RotationCurveKey) {
-        assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
         const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"CFrameF24")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
         const pos = value.Value.Position
         const [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
@@ -1917,9 +1831,8 @@ class Component {
     * @since v4.0
     */
     public writeRotationCurveKeyCFrameF32(value : RotationCurveKey) {
-        assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
         const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"CFrameF32")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
         const pos = value.Value.Position
         const [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
@@ -1927,9 +1840,7 @@ class Component {
         writef32(this.buffer,this.offset,value.Time)
         // CFrame
         writevectorf32x3(this.buffer,this.offset + 4,vector.create(pos.X,pos.Y,pos.Z))
-        writef32(this.buffer,this.offset + 16,rx)
-        writef32(this.buffer,this.offset + 20,ry)
-        writef32(this.buffer,this.offset + 24,rz)
+        writevectorf32x3(this.buffer,this.offset + 16,vector.create(rx,ry,rz))
         // Enum Id
         writeu16(this.buffer,this.offset + 28,id)
         // Tangents included if is cubic
@@ -1959,9 +1870,8 @@ class Component {
     * @since v4.0
     */
     public writeRotationCurveKeyQuantized(value : RotationCurveKey) {
-        assert(typeOf(value) === "RotationCurveKey","First arguments is expected to be a RotationCurveKey")
         const bytes = Constants.REQUIRED_BYTES.RotationCurveKey(value,"Quantized")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         const id = Constants.EnumItemIndex[value.Interpolation as keyof unknown] as number
         const pos = value.Value.Position
         const [rx,ry,rz] = value.Value.ToEulerAnglesXYZ()
@@ -2004,13 +1914,11 @@ class Component {
     * @since v1.0
     */
     public writeFloatCurveKey(value : EditableFloatCurveKey) {
-        assert(typeOf(value) === "FloatCurveKey","First arguments is expected to be a FloatCurveKey")
         const bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"Normal")
-        this.ensureWritable(bytes)
-        const id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writef32(this.buffer,this.offset,value.Time)
         writef64(this.buffer,this.offset + 4,value.Value)
-        writeu16(this.buffer,this.offset + 12,id)
+        writeu16(this.buffer,this.offset + 12,Constants.EnumItemIndex[value.Interpolation as keyof defined] as number)
         if(value.Interpolation === Enum.KeyInterpolationMode.Cubic) {
             if(!value.LeftTangent) value.LeftTangent = 0;
             if(!value.RightTangent) value.RightTangent = 0;
@@ -2036,13 +1944,11 @@ class Component {
     * @since v4.0
     */
     public writeFloatCurveKeyF24(value : EditableFloatCurveKey) {
-        assert(typeOf(value) === "FloatCurveKey","First arguments is expected to be a FloatCurveKey")
         const bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"F24")
-        this.ensureWritable(bytes)
-        const id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writef32(this.buffer,this.offset,value.Time)
         writeNfp24(this.buffer,[value.Value],this.offset + 4)
-        writeu16(this.buffer,this.offset + 7,id)
+        writeu16(this.buffer,this.offset + 7,Constants.EnumItemIndex[value.Interpolation as keyof defined] as number)
         if(value.Interpolation === Enum.KeyInterpolationMode.Cubic) {
             if(!value.LeftTangent) value.LeftTangent = 0;
             if(!value.RightTangent) value.RightTangent = 0;
@@ -2068,13 +1974,11 @@ class Component {
     * @since v4.0
     */
     public writeFloatCurveKeyF32(value : EditableFloatCurveKey) {
-        assert(typeOf(value) === "FloatCurveKey","First arguments is expected to be a FloatCurveKey")
         const bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"F32")
-        this.ensureWritable(bytes)
-        const id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writef32(this.buffer,this.offset,value.Time)
         writef32(this.buffer,this.offset + 4,value.Value)
-        writeu16(this.buffer,this.offset + 8,id)
+        writeu16(this.buffer,this.offset + 8,Constants.EnumItemIndex[value.Interpolation as keyof defined] as number)
         if(value.Interpolation === Enum.KeyInterpolationMode.Cubic) {
             if(!value.LeftTangent) value.LeftTangent = 0;
             if(!value.RightTangent) value.RightTangent = 0;
@@ -2100,14 +2004,12 @@ class Component {
     * @since v4.0
     */
     public writeFloatCurveKeyF16(value : EditableFloatCurveKey) {
-        assert(typeOf(value) === "FloatCurveKey","First arguments is expected to be a FloatCurveKey")
         const bytes = Constants.REQUIRED_BYTES.FloatCurveKey(value,"F16")
-        this.ensureWritable(bytes)
-        const id = Constants.EnumItemIndex[value.Interpolation as keyof defined] as number
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writef32(this.buffer,this.offset,value.Time)
         const [uint16] = Extensions.toFloat16(value.Value)
         writeu16(this.buffer,this.offset + 4,uint16)
-        writei16(this.buffer,this.offset + 6,id)
+        writei16(this.buffer,this.offset + 6,Constants.EnumItemIndex[value.Interpolation as keyof defined] as number)
         if(value.Interpolation === Enum.KeyInterpolationMode.Cubic) {
             if(!value.LeftTangent) value.LeftTangent = 0;
             if(!value.RightTangent) value.RightTangent = 0;
@@ -2135,10 +2037,9 @@ class Component {
     * @since v1.0
     */
     public writeColorSequence(value : ColorSequence) {
-        assert(typeOf(value) === "ColorSequence","First arguments is expected to be a ColorSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped ColorSequence, empty table was given"); return }
         const bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"Normal")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
@@ -2167,10 +2068,9 @@ class Component {
     * @since v4.0
     */
     public writeColorSequenceF24(value : ColorSequence) {
-        assert(typeOf(value) === "ColorSequence","First arguments is expected to be a ColorSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped ColorSequence, empty table was given"); return }
         const bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"F24")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
@@ -2197,10 +2097,9 @@ class Component {
     * @since v4.0
     */
     public writeColorSequenceF32(value : ColorSequence) {
-        assert(typeOf(value) === "ColorSequence","First arguments is expected to be a ColorSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped ColorSequence, empty table was given"); return }
         const bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"F32")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
@@ -2229,10 +2128,9 @@ class Component {
     * @since v4.0
     */
     public writeColorSequenceF64(value : ColorSequence) {
-        assert(typeOf(value) === "ColorSequence","First arguments is expected to be a ColorSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped ColorSequence, empty table was given"); return }
         const bytes = Constants.REQUIRED_BYTES.ColorSequence(value,"F64")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
@@ -2263,8 +2161,7 @@ class Component {
     * @since v1.0
     */
     public writeNumberRange(value : NumberRange) {
-        assert(typeOf(value) === "NumberRange","First arguments is expected to be a NumberRange")
-        this.ensureWritable(Constants.REQUIRED_BYTES.NumberRange)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.NumberRange);
         writef32(this.buffer,this.offset,value.Min)
         writef32(this.buffer,this.offset + 4,value.Max)
         this.offset += 8
@@ -2284,10 +2181,9 @@ class Component {
     * @since v4.0
     */
     public writeNumberRangeF16(value : NumberRange) {
-        assert(typeOf(value) === "NumberRange","First arguments is expected to be a NumberRange")
-        this.ensureWritable(Constants.REQUIRED_BYTES.NumberRangeF16)
-        const min = Extensions.toFloat16(value.Min)[0]
-        const max = Extensions.toFloat16(value.Max)[0]
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.NumberRangeF16);
+        const [min] = Extensions.toFloat16(value.Min)
+        const [max] = Extensions.toFloat16(value.Max)
         writeu16(this.buffer,this.offset,min)
         writeu16(this.buffer,this.offset + 2,max)
         this.offset += 4
@@ -2307,8 +2203,7 @@ class Component {
     * @since v4.0
     */
     public writeNumberRangeF24(value : NumberRange) {
-        assert(typeOf(value) === "NumberRange","First arguments is expected to be a NumberRange")
-        this.ensureWritable(Constants.REQUIRED_BYTES.NumberRangeF24)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.NumberRangeF24);
         writeNfp24(this.buffer,[value.Min,value.Max],this.offset)
         this.offset += 6
         this.offsetChanged.Fire(this.offset)
@@ -2327,8 +2222,7 @@ class Component {
     * @lastest modification : v4.0
     */
     public writeNumberRangeF64(value : NumberRange) {
-        assert(typeOf(value) === "NumberRange","First arguments is expected to be a NumberRange")
-        this.ensureWritable(Constants.REQUIRED_BYTES.NumberRangeF64)
+        if(this.enableSafeVerificationMode) this.ensureWritable(Constants.REQUIRED_BYTES.NumberRangeF64);
         writef64(this.buffer,this.offset,value.Min)
         writef64(this.buffer,this.offset + 8,value.Max)
         this.offset += 16
@@ -2352,10 +2246,9 @@ class Component {
     * @since v1.0
     */
     public writeNumberSequence(value : NumberSequence) {
-        assert(typeOf(value) === "NumberSequence","First arguments is expected to be a NumberSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped NumberSequence, empty table was given"); return }
         const bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"Normal")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
@@ -2383,10 +2276,9 @@ class Component {
     * @since v4.0
     */
     public writeNumberSequenceF16(value : NumberSequence) {
-        assert(typeOf(value) === "NumberSequence","First arguments is expected to be a NumberSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped NumberSequence, empty table was given"); return }
         const bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"F16")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
@@ -2415,10 +2307,9 @@ class Component {
     * @since v4.0
     */
     public writeNumberSequenceF24(value : NumberSequence) {
-        assert(typeOf(value) === "NumberSequence","First arguments is expected to be a NumberSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped NumberSequence, empty table was given"); return }
         const bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"F24")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
@@ -2446,10 +2337,9 @@ class Component {
     * @since v4.0
     */
     public writeNumberSequenceF64(value : NumberSequence){
-        assert(typeOf(value) === "NumberSequence","First arguments is expected to be a NumberSequence")
         if(value.Keypoints.size() <= 0) { warn("Skipped NumberSequence, empty table was given"); return }
         const bytes = Constants.REQUIRED_BYTES.NumberSequence(value,"F64")
-        this.ensureWritable(bytes)
+        if(this.enableSafeVerificationMode) this.ensureWritable(bytes);
         writeu8(this.buffer,this.offset,value.Keypoints.size())
         this.offset += 1
         for(let i = 0; i <= value.Keypoints.size() - 1; i++) {
@@ -2474,7 +2364,6 @@ class Component {
     * @since v1.0
     */
     public writeInstance(inst : Instance) {
-        assert(typeOf(inst) === "Instance","First argument is expected to be a Instance")
         tblinsert(this.instanceBuffer,inst)
         this.instanceOffset += 1
         this.instanceOffsetChanged.Fire(this.instanceOffset)
@@ -2542,8 +2431,6 @@ class Component {
     * @since v2.8
     */
     public writeArray<T>(types : [BitstreamTypes],values : T[]) {
-        assert(typeOf(types) === "table","First argument is expected to be a table containing types")
-        assert(typeOf(values) === "table","Second argument is expected to be a array of values")
         Resolver.iterateArray(types,values,(t,v) => {
             this.writeAs(t,v)
         })
@@ -2592,8 +2479,6 @@ class Component {
     * @since v3.2
     */
     public writeStruct(schema : StructSchema,struct : Record<string,defined>) {
-        assert(typeOf(schema) === "table","First argument is expected to be a table corresponding to a StructSchema")
-        assert(typeOf(struct) === "table","Second argument is expected to be a dictionary")
         Resolver.iterateStruct(schema,struct,(t,v) => {
             this.writeAs(t as BitstreamTypes,v)
         })
