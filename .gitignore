@@ -10,3 +10,4 @@ COMMANDS.md
 *.DotSettings.user
 Folder.DotSettings.user
 .idea
+sourcemap.json
