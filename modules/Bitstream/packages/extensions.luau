@@ -172,5 +172,5 @@ end
 end
 
 @native function searchEnumTypeIdentifier<EnumItem>(typeIdentifier : number) : EnumItem 
-	-- TODO: Constants.luau
+	
 end

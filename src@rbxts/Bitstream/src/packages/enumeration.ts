@@ -123,6 +123,7 @@ export type BitstreamTypes =
 	"Region3Quaternion" | `Region3Quaternion:${number}` |
 	"Region3CFrameF24" | `Region3CFrameF24:${number}` |
 	"Region3CFrameF32" | `Region3CFrameF32:${number}` |
+	"Region3int16" | `Region3int16:${number}` |
 	"Region3Quantized" | `Region3Quantized:${number}`
 	| // RotationCurveKey //
 	{["Type"] : "RotationCurveKey" | `RotationCurveKey:${number}`, Option : Types.RotationCurveKeyOption}
