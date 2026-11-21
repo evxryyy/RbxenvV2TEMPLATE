@@ -1,5 +1,6 @@
 ﻿--!strict
 const typeHelper = require("./typeHelper")
+const enumeration = require("./enumeration")
 
 const sin = math.sin; const cos = math.cos;
 const huge = math.huge; const floor = math.floor;
@@ -7,8 +8,10 @@ const log = math.log;
 
 const bor = bit32.bor; const lshift = bit32.lshift;
 const rshift = bit32.rshift; const band = bit32.band;
+const extract = bit32.extract;
 
 const strpack = string.pack const strunpack = string.unpack;
+const sub = string.sub;
 
 const readu16 = buffer.readu16;
 
@@ -77,7 +80,7 @@ end
 	@returns : CFrame
 	Converts a quaternion to a CFrame with the given position.
 ]]
-@native function quaterionToCFrame(pos : Vector3,quaternion : typeHelper.Quaternion)
+@native function quaternionToCFrame(pos : Vector3,quaternion : typeHelper.Quaternion)
 	const xx,yy,zz =
 		quaternion.x*quaternion.x,
 		quaternion.y*quaternion.y,
@@ -171,6 +174,140 @@ end
 	return if(sign == 0) then value else -value;
 end
 
-@native function searchEnumTypeIdentifier<EnumItem>(typeIdentifier : number) : EnumItem 
-	
+@native function searchEnumTypeIdentifier<EnumItem>(typeIdentifier : number) : EnumItem
+	return enumeration.fromValue(typeIdentifier)
 end
+
+function bitstreamTypesToLiteralTypes(typeName)
+	if typeName == "UDim" or typeName == "UDim2" then
+		return typeName
+	end
+	-- Enum
+	if typeName == "Enum" then
+		return "EnumItem"
+	end
+	-- Strings
+	if typeName == "PrefixedString" or typeName == "String" then
+		return "string"
+	end
+	-- Color3
+	if typeName == "Color3F32" or typeName == "Color3F64" or typeName == "Color3F24" then
+		return "Color3"
+	end
+	-- Rect
+	if typeName == "RectFloat32" or typeName == "RectFloat24" then
+		return "Rect"
+	end
+	-- CFrame
+	if typeName == "CFrameF24" or typeName == "CFrameF32" or typeName == "CFrameF64" or typeName == "CFrameQuantized" or typeName == "CFrameQuaternion" then
+		return "CFrame"
+	end
+	-- Vectors
+	if typeName == "Vector3float24" or typeName == "Vector3float32" or typeName == "Vector3uint16" then
+		return "Vector3"
+	end
+	if typeName == "Vector2float24" or typeName == "Vector2float32" or typeName == "Vector2uint16" then
+		return "Vector2"
+	end
+	-- Regions
+	if typeName == "Region3CFrameF24" or typeName == "Region3CFrameF32" or typeName == "Region3Quantized" or typeName == "Region3Quaternion" then
+		return "Region3"
+	end
+	-- NumberRanges
+	if typeName == "NumberRangeF16" or typeName == "NumberRangeF24" or typeName == "NumberRangeF64" then
+		return "NumberRange"
+	end
+	-- Get the first letter of the type for numbers
+	const symbol = sub(typeName, 1, 1)
+	const isOnly3Letters = if (#typeName == 3) then true else false
+	if (symbol == "U" or symbol == "I" or symbol == "F") and isOnly3Letters then
+		return "number"
+	elseif symbol == "B" and isOnly3Letters then
+		return "boolean"
+	end
+	return typeName
+end
+
+@native function encodeF24(float : number) : number
+	local sign = 0
+	if(float < 0) then 
+		sign = 1; float = -float;
+		elseif (float == 0) then return 0;
+	end
+	const bits = floatToBits(float)
+	const exponent32 = extract(bits,23,0)
+	const mantissa32 = extract(bits,0,23)
+	local exponent = exponent32 - 127 + 16
+	local mantissa = 0
+	if(exponent32 == 255) then return bor(lshift(sign, 23),0x7FFFFF) end;
+	if(exponent <= 0) then
+		mantissa = floor(float * (2 ^ 33) + 0.5)
+		if(mantissa >= 262_144) then return bor(lshift(sign, 23),lshift(1,18)) end;
+		return bor(lshift(sign, 23),mantissa)
+	end
+	mantissa = floor(mantissa32 / 32 + 0.5)
+	if(mantissa == 262_144) then
+		mantissa = 0; exponent += 1
+	end
+	if(exponent > 31) then return bor(lshift(sign,23),0x7FFFFF) end;
+	return bor(lshift(sign, 23),lshift(exponent, 18),mantissa)
+end
+
+@native function decodeF24(b24 : number) : number
+	const sign = extract(b24,23,1)
+	const exponent = extract(b24,f24_mant_bits,f24_exp_bits)
+	const mantissa = extract(b24,0,f24_mant_bits)
+	if(exponent == 0 and mantissa == 0) then return 0 end;
+	local value = 0
+	if(exponent == 0) then 
+		value = mantissa * (2 ^ -33)
+	else 
+		value = (1 + mantissa / 262_144) * (2 ^ (exponent - 16))
+	end
+	return if(sign == 1) then -value else value;
+end
+
+@native function encodeF8(float : number) : number
+	local sign = 0 
+	if(float < 0) then
+		sign = 1; float = -float;
+		elseif(float == 0) then return 0;
+		elseif(float ~= float or float == huge) then return bor(lshift(sign, 7),0x7F);
+	end
+	local exponent = floor(log(float) / log(2))
+	local mantissa = floor((((float / (2 ^ exponent))) - 1) * 8 + 0.5)
+	if(exponent < -7) then return lshift(sign, 7) end;
+	if(mantissa >= 8) then
+		mantissa = 0; exponent += 1;
+	end
+	exponent += 7
+	if(exponent > 15) then
+		exponent = 15;
+		mantissa = 7;
+	end
+	return bor(lshift(sign,7),lshift(exponent,3),mantissa)
+end
+
+@native function decodeF8(b8 : number) : number
+	const sign = rshift(b8,7)
+	const exponent = band(rshift(b8,3),f15bit)
+	const mantissa = band(b8,0x7)
+	if(exponent == 0 and mantissa == 0) then return 0 end;
+	const value = (1 + mantissa / 8) * (2 ^ (exponent - 7))
+	return if(sign == 1) then -value else value;
+end
+
+return table.freeze({
+	floatToBits = floatToBits,
+	bitsToFloat = bitsToFloat,
+	axisAngleToQuaterion = axisAngleToQuaterion,
+	quaternionToCFrame = quaternionToCFrame,
+	toFloat16 = toFloat16,
+	decodeF16 = decodeF16,
+	searchEnumTypeIdentifer = searchEnumTypeIdentifier,
+	bitstreamTypesToLiteralTypes = bitstreamTypesToLiteralTypes,
+	encodeF24 = encodeF24,
+	decodeF24 = decodeF24,
+	encodeF8 = encodeF8,
+	decodeF8 = decodeF8
+})

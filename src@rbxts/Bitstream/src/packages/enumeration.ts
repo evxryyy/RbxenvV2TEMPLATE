@@ -278,7 +278,7 @@ export abstract class Enumeration {
 		Region3int16: 0x4E,
 	}
 
-	// Given the specified number n, searches the list for the exact corresponding type (e.g., 1 → I8).
+	// Given the specified number n, searches the list for the exact corresponding type (e.g., 0 → I8).
 	public static fromValue(n : number) : BitstreamTypesName {
 		assert(typeOf(n) === "number","First argument is expected to be a number.")
 		for(const [k,v] of pairs(this.BitstreamEnumeration)) {
