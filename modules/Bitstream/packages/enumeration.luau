@@ -2,8 +2,50 @@
 
 const typeHelper = require("./typeHelper")
 
+type ValidSignedIntegerBits = typeHelper.ValidSignedIntegerBits
+type ValidUnsignedIntegerBits = typeHelper.ValidUnsignedIntegerBits
+type ValidFloatBits = typeHelper.ValidFloatBits
+type BitstreamTypeNames = typeHelper.BitstreamTypeNames
+
+-- Objects Types --
+type Int<T> = typeHelper.Int<T>
+type Uint<T> = typeHelper.Uint<T>
+type Float<T> = typeHelper.Float<T>
+type String<T> = typeHelper.String<T>
+type RotationCurveKey<T> = typeHelper.RotationCurveKey<T>
+type FloatCurveKey<T> = typeHelper.FloatCurveKey<T>
+type ColorSequence<T> = typeHelper.ColorSequence<T>
+type NumberSequence<T> = typeHelper.NumberSequence<T>
+
+-- Custom Objects Types --
+type ArrayDescriptor = typeHelper.ArrayDescriptor
+type RbxDesc<T> = typeHelper.RbxDesc<T>
+
+-- Objects Options -- 
+type RotationCurveKeyOption = typeHelper.RotationCurveKeyOption
+type FloatCurveKeyOption = typeHelper.FloatCurveKeyOption
+type ColorSequenceOption = typeHelper.ColorSequenceOption
+type NumberSequenceOption = typeHelper.NumberSequenceOption
+
+const VALID_INT: { [string]: boolean } = {
+	["8"] = true, ["16"] = true, ["24"] = true, ["32"] = true,
+	["40"] = true, ["48"] = true, ["54"] = true,
+}
+const VALID_UINT: { [string]: boolean } = {
+	["1"] = true, ["8"] = true, ["16"] = true, ["24"] = true,
+	["32"] = true, ["40"] = true, ["48"] = true, ["54"] = true,
+}
+const VALID_FLOAT: { [string]: boolean } = {
+	["8"] = true, ["16"] = true, ["24"] = true, ["32"] = true, ["64"] = true,
+}
+
 const Enumeration = {}
 Enumeration.__index = Enumeration
+
+-- Subclassing for creating schema
+Enumeration.SchemaBuilder = {}
+-- Meaning : EmptyCountPattern for types
+Enumeration.SchemaBuilder.ECP = ""
 
 Enumeration.BitstreamEnumeration = {
 	I8 = 0x00,
@@ -109,10 +151,81 @@ Enumeration.BitstreamEnumeration = {
 	Region3int16 = 0x4E,
 }
 
+const function makeNumeric<T>(prefix: string, valid: { [string]: boolean }, spec: string): T
+	local bits, count = string.match(spec, "^(%d+):(%d+)$")
+	if(bits == nil) then
+		bits = string.match(spec, "^(%d+)$")
+	end
+	if(bits == nil or not valid[bits]) then
+		error(`Invalid bits in "{spec}" for {prefix}`)
+	end
+	if(count ~= nil) then
+		local n = tonumber(count)
+		if n == nil or n <= 1 or string.sub(count, 1, 1) == "0" then
+			error(`Invalid count in "{spec}"`)
+		end
+	end
+	return (prefix .. spec) :: any
+end
+
+const function makeRbx<T>(spec: string): T
+	local name = spec
+	local count = ""
+	const colon = string.find(spec, ":", 1, true)
+	if(colon ~= nil) then
+		name = string.sub(spec, 1, colon - 1)
+		count = string.sub(spec, colon)
+	end
+	if(not Enumeration.BitstreamEnumeration[name]) then
+		error(`Unknown type name "{name}" in "{spec}"`)
+	end
+	if(count ~= "") then
+		const digits = string.match(count, "^:(%d+)$")
+		if digits == nil then
+			error(`Invalid count in "{spec}" (expected "Name:N")`)
+		end
+		const n = tonumber(digits)
+		if(n == nil or n <= 1 or string.sub(digits, 1, 1) == "0") then
+			error(`Invalid count in "{spec}" (N > 1, no leading zero)`)
+		end
+	end
+	return spec :: any
+end
+
+function Enumeration.SchemaBuilder.Int<T>(spec : T | ValidSignedIntegerBits) : Int<T> return makeNumeric<<Int<T>>>("I", VALID_INT, spec) end;
+function Enumeration.SchemaBuilder.Uint<T>(spec : T | ValidUnsignedIntegerBits) : Uint<T> return makeNumeric<<Uint<T>>>("U", VALID_UINT, spec) end;
+function Enumeration.SchemaBuilder.Float<T>(spec : T | ValidFloatBits) : Float<T> return makeNumeric<<Float<T>>>("F", VALID_FLOAT, spec) end;
+function Enumeration.SchemaBuilder.RbxType<S>(spec: S | BitstreamTypeNames): RbxDesc<S> return makeRbx<<RbxDesc<S>>>((spec)) end;
+
+function Enumeration.SchemaBuilder.String<T>(spec : T | "", len : number) : String<T>
+	return { Type = makeRbx<<T>>(`String:{spec}`), Length = len }
+end
+
+function Enumeration.SchemaBuilder.RotationCurveKey<T>(spec : T | "",option : RotationCurveKeyOption?) : RotationCurveKey<T>
+	return { Type = makeRbx<<T>>(`RotationCurveKey:{spec}`), Option = option or "Normal"}
+end
+
+function Enumeration.SchemaBuilder.FloatCurveKey<T>(spec : T | "",option : FloatCurveKeyOption?) : FloatCurveKey<T>
+	return { Type = makeRbx<<T>>(`FloatCurveKey:{spec}`), Option = option or "Normal"}
+end
+
+function Enumeration.SchemaBuilder.ColorSequence<T>(spec : T | "",option : ColorSequenceOption?) : ColorSequence<T>
+	return { Type = makeRbx<<T>>(`ColorSequence:{spec}`), Option = option or "Normal"}
+end
+
+function Enumeration.SchemaBuilder.NumberSequence<T>(spec : T | "",option : NumberSequenceOption?) : NumberSequence<T>
+	return { Type = makeRbx<<T>>(`NumberSequence:{spec}`), Option = option or "Normal"}
+end
+
+function Enumeration.SchemaBuilder.Array(types : {string | ArrayDescriptor}) : ArrayDescriptor
+	return { Type = "Array", Types = types }
+end
+
 -- Given the specified number n, searches the list for the exact corresponding type (e.g., 0 → I8).
-function Enumeration.fromValue(n : number) : keyof<typeof(Enumeration.BitstreamEnumeration)> 
+function Enumeration.fromValue(n : number) : keyof<typeof(Enumeration.BitstreamEnumeration)>
 	for k,v in pairs(Enumeration.BitstreamEnumeration) do
-		if(v == n) then return k end
+	if(v == n) then 
+		return k :: keyof<typeof(Enumeration.BitstreamEnumeration)> end
 	end
 	error("Could not find a valid Bitstream type.")
 end
