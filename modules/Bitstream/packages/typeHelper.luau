@@ -99,7 +99,7 @@ export type NumberSequenceOption = "Normal" | "F16" | "F64" | "F24"
     type Invalid = ValidateUnion<"I4", BitstreamTypeNames> -- Resolves to: false ("I4" is not a member of BitstreamTypeNames)
 ]]
 export type function ValidateUnion(target : string,validsTargets : type) : boolean
-	if(not typeof(target) == "string") then return false end;
+	if(not (typeof(target) == "string")) then return false end;
 	if(not validsTargets:is("union")) then return false end;
 	for _,v in validsTargets:components() :: {type} do
 		if(type(v:value()) == "string" and v:value() == target) then

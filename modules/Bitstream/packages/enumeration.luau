@@ -158,7 +158,7 @@ Enumeration.BitstreamEnumeration = {
 	-- New types or missing types go on the bottom
 
 	Region3int16 = 0x4E,
-} :: {read [BitstreamTypeNames] : number}
+} :: {[BitstreamTypeNames] : number}
 
 --[[
 	Constructs dynamic numeric type representations (e.g., `Int`, `Float`, `Uint`).
@@ -199,7 +199,7 @@ const function makeRbx<T>(spec: string): T
 		name = string.sub(spec, 1, colon - 1)
 		count = string.sub(spec, colon)
 	end
-	if(not Enumeration.BitstreamEnumeration[name]) then
+	if(not Enumeration.BitstreamEnumeration[name :: any]) then
 		error(`Unknown type name "{name}" in "{spec}"`)
 	end
 	if(count ~= "") then
@@ -247,8 +247,9 @@ end
 -- Given the specified number n, searches the list for the exact corresponding type (e.g., 0 → I8).
 function Enumeration.fromValue(n : number) : keyof<typeof(Enumeration.BitstreamEnumeration)>
 	for k,v in pairs(Enumeration.BitstreamEnumeration) do
-	if(v == n) then 
-		return k :: keyof<typeof(Enumeration.BitstreamEnumeration)> end
+		if(v == n) then 
+			return k :: keyof<typeof(Enumeration.BitstreamEnumeration)>
+		end
 	end
 	error("Could not find a valid Bitstream type.")
 end
