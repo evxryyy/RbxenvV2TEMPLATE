@@ -13,7 +13,3 @@
     --animate-text-scroll : scrollText 4s linear infinite;;
     
 }
-
-.animate-text-scroll {
-    animation: scrollText 8s linear infinite;
-}
