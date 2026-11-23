@@ -1,0 +1,45 @@
+﻿/* NavBar.module.css */
+
+@reference "tailwindcss";
+
+.navBar {
+    @apply sticky top-0 z-50 border-b border-white/10 bg-zinc-950/80 backdrop-blur;
+
+    .navigation {
+        @apply px-4 flex h-14 flex-nowrap items-center gap-8;
+
+        .text {
+            @apply transition-colors shrink-0 whitespace-nowrap text-left text-slate-400
+            hover:text-sky-400 select-none font-mono;
+        }
+        
+        .ref {
+            @apply shrink-0 whitespace-nowrap font-mono text-slate-100;
+        }
+        
+    }
+}
+
+.searchBar {
+    @apply ml-auto relative w-full max-w-md flex items-center transition-all duration-300;
+
+    .icon {
+        @apply absolute left-3 size-4 text-zinc-500 z-10 pointer-events-none transition-colors duration-300;
+    }
+
+    .inputField {
+        @apply w-full bg-zinc-900/50 border border-zinc-800 py-2.5
+        rounded-xl text-center font-mono text-[13px] text-zinc-200 outline-hidden
+        placeholder:text-zinc-600 transition-all duration-300 ease-in-out;
+
+        &:hover {
+            @apply border-zinc-700 bg-zinc-800/50 shadow-[0_0_15px_-5px_var(--color-sky-500/0.2)];
+        }
+
+        &:focus {
+            @apply border-sky-500/50 ring-2 ring-sky-500/10;
+        }
+    }
+    
+    
+}

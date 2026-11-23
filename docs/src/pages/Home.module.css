@@ -1,0 +1,46 @@
+﻿/* Home.module.css */
+
+@reference "../App.css";
+
+.homeHeader {
+    @apply fixed w-full gap-4 ml-auto mr-auto p-20 zoom-125;
+    
+    .title {
+        animation: var(--animate-text-scroll);
+        background-size: 200% auto;
+        
+        @apply text-5xl font-bold font-sans
+        bg-linear-to-r from-[#F8FAFC] via-[#38BDF8] to-[#0284C7]
+        bg-clip-text text-transparent text-center
+        mb-4 h-max;
+    }
+    
+    .description {
+        @apply text-slate-400 mb-6 text-center w-full text-2xl;
+    }
+    
+    .buttonContainer {
+        @apply flex flex-col items-center justify-center text-center mb-8;
+        
+        .readDocumentation {
+            @apply bg-sky-700 text-white px-4 py-2 rounded-2xl
+            font-semibold transition content-center mr-4 cursor-pointer;
+            
+            &:hover {
+                @apply bg-sky-600;
+            }
+        }
+        
+        .links {
+            @apply bg-zinc-800/50 border-1 border-amber-50 text-white
+            px-4 py-2 rounded-2xl font-semibold cursor-pointer select-none 
+            transition;
+            
+            &:hover {
+                @apply bg-zinc-700;
+            }
+        }
+        
+    }
+    
+}

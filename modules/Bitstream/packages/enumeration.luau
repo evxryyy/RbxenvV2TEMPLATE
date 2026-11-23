@@ -44,9 +44,18 @@ Enumeration.__index = Enumeration
 
 -- Subclassing for creating schema
 Enumeration.SchemaBuilder = {}
--- Meaning : EmptyCountPattern for types
-Enumeration.SchemaBuilder.ECP = ""
 
+-- Meaning : EmptyCountPattern for types
+Enumeration.ECP = ""
+
+-- Schema creation configuration
+Enumeration.SchemaBuilder.Configuration = {
+	-- Enables runtime type verification (default: `true`).
+	-- Disable this if your input data is strictly guaranteed and predictable to eliminate overhead and maximize performance.
+	EnableTypeVerification = true,
+}	
+	
+-- Registry of supported primitive and complex data type tags.
 Enumeration.BitstreamEnumeration = {
 	I8 = 0x00,
 	I16 = 0x01,
@@ -149,9 +158,16 @@ Enumeration.BitstreamEnumeration = {
 	-- New types or missing types go on the bottom
 
 	Region3int16 = 0x4E,
-}
+} :: {read [BitstreamTypeNames] : number}
 
+--[[
+	Constructs dynamic numeric type representations (e.g., `Int`, `Float`, `Uint`).
+    Performs runtime syntax and bit-width validation when `EnableTypeVerification` is enabled.
+    
+    Fast-path: Directly returns concatenated type specifier if verification is disabled.
+]]
 const function makeNumeric<T>(prefix: string, valid: { [string]: boolean }, spec: string): T
+	if(not Enumeration.SchemaBuilder.Configuration.EnableTypeVerification) then return (prefix .. spec) :: any end
 	local bits, count = string.match(spec, "^(%d+):(%d+)$")
 	if(bits == nil) then
 		bits = string.match(spec, "^(%d+)$")
@@ -168,7 +184,14 @@ const function makeNumeric<T>(prefix: string, valid: { [string]: boolean }, spec
 	return (prefix .. spec) :: any
 end
 
+--[[
+    Validates and resolves a Roblox primitive or custom type specification (e.g., "Vector3" or "Vector3:16").
+    Performs runtime validation against registered type tags when `EnableTypeVerification` is enabled.
+
+    Fast-path: Directly returns the specification string if verification is disabled.
+]]
 const function makeRbx<T>(spec: string): T
+	if(not Enumeration.SchemaBuilder.Configuration.EnableTypeVerification) then return spec :: any end
 	local name = spec
 	local count = ""
 	const colon = string.find(spec, ":", 1, true)
@@ -198,7 +221,7 @@ function Enumeration.SchemaBuilder.Float<T>(spec : T | ValidFloatBits) : Float<T
 function Enumeration.SchemaBuilder.RbxType<S>(spec: S | BitstreamTypeNames): RbxDesc<S> return makeRbx<<RbxDesc<S>>>((spec)) end;
 
 function Enumeration.SchemaBuilder.String<T>(spec : T | "", len : number) : String<T>
-	return { Type = makeRbx<<T>>(`String:{spec}`), Length = len }
+return { Type = makeRbx<<T>>(`String:{spec}`), Length = len }
 end
 
 function Enumeration.SchemaBuilder.RotationCurveKey<T>(spec : T | "",option : RotationCurveKeyOption?) : RotationCurveKey<T>

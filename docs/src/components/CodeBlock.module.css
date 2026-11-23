@@ -1,0 +1,15 @@
+﻿@reference "tailwindcss";
+
+.root {
+    @apply min-w-0 overflow-hidden rounded-xl 
+    border border-white/10 bg-zinc-900/80 shadow-2xl;
+    
+    pre {
+        @apply overflow-x-auto p-6 text-left;
+    }
+    
+    code {
+        @apply font-mono text-sm leading-relaxed text-zinc-300;
+    }
+    
+}

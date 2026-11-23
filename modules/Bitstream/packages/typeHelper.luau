@@ -91,28 +91,28 @@ export type ColorSequenceOption = "Normal" | "F32" | "F64" | "F24"
 ]]
 export type NumberSequenceOption = "Normal" | "F16" | "F64" | "F24"
 
-export type function ValidateBits(bits : string,validBits : type) : boolean
-	if(not (typeof(bits) == "string")) then return false end;
-	if(not validBits:is("union")) then return false end;
-	for _,v in validBits:components() :: {type} do
-		if(type(v:value()) == "string" and v:value() == bits) then
+--[[
+    Type-level function that verifies whether a target literal string type exists within a given string union.
+
+    @example
+    type Valid = ValidateUnion<"I8", BitstreamTypeNames>   -- Resolves to: true
+    type Invalid = ValidateUnion<"I4", BitstreamTypeNames> -- Resolves to: false ("I4" is not a member of BitstreamTypeNames)
+]]
+export type function ValidateUnion(target : string,validsTargets : type) : boolean
+	if(not typeof(target) == "string") then return false end;
+	if(not validsTargets:is("union")) then return false end;
+	for _,v in validsTargets:components() :: {type} do
+		if(type(v:value()) == "string" and v:value() == target) then
 			return true
-		end
+		end	
 	end
 	return false
 end
 
-export type function ValidateRbxType(rbxType : string,validRbxTypes : type) : boolean
-	if(not (typeof(rbxType) == "string")) then return false end;
-	if(not validRbxTypes:is("union")) then return false end;
-	for _,v in validRbxTypes:components() :: {type} do
-		if(type(v:value()) == "string" and v:value() == rbxType) then
-			return true
-		end
-	end
-	return false
-end
-
+--[[
+    Type-level function that validates the array count modifier syntax (e.g., ":16" in "Int:16").
+    Returns `true` if no modifier is present (empty string) or if it resolves to a valid count (N > 1, no leading zeros).
+]]
 export type function ValidateCount(count : string) : boolean
 	if(count == "") then return true end
 	local digits = string.match(count, "^:(%d+)$")
@@ -122,6 +122,19 @@ export type function ValidateCount(count : string) : boolean
 	return true
 end
 
+--[[
+    Type-level function used to construct dynamic numeric type literal strings (e.g., `Int8`, `Uint16:4`, `Float32`).
+    
+    Powers dynamic numeric types such as `Int<T>`, `Uint<T>`, and `Float<T>`.
+    It parses and validates the bit-width and optional array count modifier (`:N`), returning a validated string singleton type.
+    
+    @example
+    -- Constructs dynamic type union under prefix "X" allowing bit-widths "10" or "11"
+    type XUnion<T> = IntegerUnion<T, "X", "10" | "11">
+
+    const x: XUnion<"10"> = "X10"     -- Valid (with autocomplete)
+    const y: XUnion<"10:2"> = "X10:2" -- Valid array format (10-bit value, array length 2)
+]]
 export type function IntegerUnion(spec: type,prefix: type,validBits: type) : type
 	if(not spec:is("singleton") or type(spec:value()) ~= "string") then return types.never end
 	if(not prefix:is("singleton") or type(prefix:value()) ~= "string") then return types.never end
@@ -136,10 +149,23 @@ export type function IntegerUnion(spec: type,prefix: type,validBits: type) : typ
 			error(`Invalid count in "{specStr}" (must be > 1, no leading zero)`)
 		end
 	end
-	if(not ValidateBits(bitsStr :: string,validBits)) then return types.never end;
+	if(not ValidateUnion(bitsStr :: string,validBits)) then return types.never end;
 	return types.singleton(`{prefixStr}{specStr}`)
 end
 
+--[[
+    Type-level function equivalent to `IntegerUnion`, designed for Roblox primitive and complex types.
+    
+    Validates a type specification string against registered type names (`validNames`) and supports optional array count modifiers (`TypeName:N`).
+
+    @example
+    -- Helper type alias for registered Bitstream Roblox types
+    export type RbxDesc<S> = RbxType<S, BitstreamTypeNames>
+
+    const enumValue: RbxDesc<"Enum"> = "Enum"     -- Valid
+    const badValue: RbxDesc<"Random"> = "Random"  -- Error: "Random" is not a member of BitstreamTypeNames
+    const enumArray: RbxDesc<"Enum:2"> = "Enum:2" -- Valid array format
+]]
 export type function RbxType(spec: type,validNames: type) : type
 	if(not spec:is("singleton") or type(spec:value()) ~= "string") then return types.never end
 	const specStr = spec:value() :: string
@@ -150,7 +176,7 @@ export type function RbxType(spec: type,validNames: type) : type
 		nameStr = string.sub(specStr, 1, colon - 1)
 		countStr = string.sub(specStr, colon)
 	end
-	if(not ValidateBits(nameStr, validNames)) then
+	if(not ValidateUnion(nameStr, validNames)) then
 		error(`Unknown type name "{nameStr}" in "{specStr}"`)
 	end
 	if(not ValidateCount(countStr)) then
@@ -159,6 +185,12 @@ export type function RbxType(spec: type,validNames: type) : type
 	return types.singleton(`{specStr}`)
 end
 
+--[[
+    Type-level function that appends an array count modifier to base type strings.
+    
+    Primarily used for complex or dictionary-backed types (e.g., `String`, `RotationCurveKey`).
+    Unlike `RbxType`, it bypasses union validation and strictly enforces the array count pattern (`:N`).
+]]
 export type function WithCount(name : type, count : type) : type
 	if(not name:is("singleton") or type(name:value()) ~= "string") then return types.never end
 	if(not count:is("singleton") or type(count:value()) ~= "string") then return types.string end
@@ -292,12 +324,13 @@ export type BitstreamTypeNames =
 	| "Array"
 	| "Struct"
 
-
+-- Array Descriptor --
 export type ArrayDescriptor = {
 	Type: "Array",
 	Types: { string | ArrayDescriptor },
 }
 
+-- Struct Descriptor --
 export type StructDescriptor = {
 	Type: "Struct",
 	Fields : { [string] : string | ArrayDescriptor }
