@@ -1,6 +1,6 @@
 ﻿--!strict
-const typeHelper = require("./typeHelper")
-const enumeration = require("./enumeration")
+const TypeHelper = require("./TypeHelper")
+const Enumeration = require("./Enumeration")
 
 const sin = math.sin; const cos = math.cos;
 const huge = math.huge; const floor = math.floor;
@@ -35,7 +35,7 @@ const f24_mant_bits = 18 -- 18 (used for 24 bit fp fixed numbers)
 	Convert a float to its unsigned 32-bit representation.
 ]]
 @native function floatToBits(n) : number
-	return strunpack(">I4",strpack(">f",n))
+	return strunpack(">I4",strpack(">f",n)) :: number
 end
 
 --[[
@@ -47,7 +47,7 @@ end
 	Convert a 32-bit unsigned integer to a float.
 ]]
 @native function bitsToFloat(bits) : number
-	return strunpack(">f",strpack(">I4",bits))
+	return strunpack(">f",strpack(">I4",bits)) :: number
 end
 
 --[[
@@ -59,7 +59,7 @@ end
 	@returns {X : number, Y : number, Z : number, W : number} -- Quaternion
 	Converts an axis-angle representation to a quaternion.
 ]]
-@native function axisAngleToQuaterion(axis : Vector3,angle : number) : typeHelper.Quaternion
+@native function axisAngleToQuaterion(axis : Vector3,angle : number) : TypeHelper.Quaternion
 	const halfAngle = angle / 2
 	const s = sin(halfAngle)
 	const c = cos(halfAngle)
@@ -80,7 +80,7 @@ end
 	@returns : CFrame
 	Converts a quaternion to a CFrame with the given position.
 ]]
-@native function quaternionToCFrame(pos : Vector3,quaternion : typeHelper.Quaternion)
+@native function quaternionToCFrame(pos : Vector3,quaternion : TypeHelper.Quaternion)
 	const xx,yy,zz =
 		quaternion.x*quaternion.x,
 		quaternion.y*quaternion.y,
@@ -175,10 +175,10 @@ end
 end
 
 @native function searchEnumTypeIdentifier<EnumItem>(typeIdentifier : number) : EnumItem
-	return enumeration.fromValue(typeIdentifier)
+	return Enumeration.fromValue(typeIdentifier)
 end
 
-function bitstreamTypesToLiteralTypes(typeName)
+function bitstreamTypesToLiteralTypes(typeName) : string
 	if typeName == "UDim" or typeName == "UDim2" then
 		return typeName
 	end

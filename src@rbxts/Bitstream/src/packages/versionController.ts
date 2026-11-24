@@ -11,10 +11,10 @@ interface IConfiguration { VerifyVersion : boolean }
 export abstract class VersionController {
 
     // raw link to public version of Bitstream (template link)
-    public static readonly rawURL = "https://raw.githubusercontent.com/evxryyy/Rbxenv/refs/heads/main/Bitstream/VERSION.md"
+    private static readonly rawURL = "https://raw.githubusercontent.com/evxryyy/Rbxenv/refs/heads/main/Bitstream/VERSION.md"
     
     // Simple configuration table
-    public static Configuration : IConfiguration = { VerifyVersion : true }
+    private static Configuration : IConfiguration = { VerifyVersion : true }
 
     /*
     * Checks the current module version against the version available on GitHub. 

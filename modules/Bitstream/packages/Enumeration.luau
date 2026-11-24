@@ -1,31 +1,31 @@
 ﻿--!strict
 
-const typeHelper = require("./typeHelper")
+const TypeHelper = require("./TypeHelper")
 
-type ValidSignedIntegerBits = typeHelper.ValidSignedIntegerBits
-type ValidUnsignedIntegerBits = typeHelper.ValidUnsignedIntegerBits
-type ValidFloatBits = typeHelper.ValidFloatBits
-type BitstreamTypeNames = typeHelper.BitstreamTypeNames
+type ValidSignedIntegerBits = TypeHelper.ValidSignedIntegerBits
+type ValidUnsignedIntegerBits = TypeHelper.ValidUnsignedIntegerBits
+type ValidFloatBits = TypeHelper.ValidFloatBits
+type BitstreamTypeNames = TypeHelper.BitstreamTypeNames
 
 -- Objects Types --
-type Int<T> = typeHelper.Int<T>
-type Uint<T> = typeHelper.Uint<T>
-type Float<T> = typeHelper.Float<T>
-type String<T> = typeHelper.String<T>
-type RotationCurveKey<T> = typeHelper.RotationCurveKey<T>
-type FloatCurveKey<T> = typeHelper.FloatCurveKey<T>
-type ColorSequence<T> = typeHelper.ColorSequence<T>
-type NumberSequence<T> = typeHelper.NumberSequence<T>
+type Int<T> = TypeHelper.Int<T>
+type Uint<T> = TypeHelper.Uint<T>
+type Float<T> = TypeHelper.Float<T>
+type String<T> = TypeHelper.String<T>
+type RotationCurveKey<T> = TypeHelper.RotationCurveKey<T>
+type FloatCurveKey<T> = TypeHelper.FloatCurveKey<T>
+type ColorSequence<T> = TypeHelper.ColorSequence<T>
+type NumberSequence<T> = TypeHelper.NumberSequence<T>
 
 -- Custom Objects Types --
-type ArrayDescriptor = typeHelper.ArrayDescriptor
-type RbxDesc<T> = typeHelper.RbxDesc<T>
+type ArrayDescriptor = TypeHelper.ArrayDescriptor
+type RbxDesc<T> = TypeHelper.RbxDesc<T>
 
 -- Objects Options -- 
-type RotationCurveKeyOption = typeHelper.RotationCurveKeyOption
-type FloatCurveKeyOption = typeHelper.FloatCurveKeyOption
-type ColorSequenceOption = typeHelper.ColorSequenceOption
-type NumberSequenceOption = typeHelper.NumberSequenceOption
+type RotationCurveKeyOption = TypeHelper.RotationCurveKeyOption
+type FloatCurveKeyOption = TypeHelper.FloatCurveKeyOption
+type ColorSequenceOption = TypeHelper.ColorSequenceOption
+type NumberSequenceOption = TypeHelper.NumberSequenceOption
 
 const VALID_INT: { [string]: boolean } = {
 	["8"] = true, ["16"] = true, ["24"] = true, ["32"] = true,

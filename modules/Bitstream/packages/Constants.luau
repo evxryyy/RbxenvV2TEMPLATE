@@ -1,7 +1,7 @@
 ﻿--!strict
 
 const Utilities = require("./Utilities")
-const typeHelper = require("./typeHelper")
+const TypeHelper = require("./TypeHelper")
 
 const EnumItemList : {[number] : EnumItem} = {}
 const EnumItemIndex : {[EnumItem] : number} = {}
@@ -20,7 +20,7 @@ end
 	return 1 + Utilities.getEquivalentBytesInfoFromNumber(len).bytes + len
 end
 
-function RotationCurveKeySize(rot : RotationCurveKey,option : typeHelper.RotationCurveKeyOption) : number
+function RotationCurveKeySize(rot : RotationCurveKey,option : TypeHelper.RotationCurveKeyOption) : number
 	if option == "Normal" then
 		return if (rot.Interpolation == Enum.KeyInterpolationMode.Cubic) then 62 else 54
 	elseif option == "Quaternion" then
@@ -35,7 +35,7 @@ function RotationCurveKeySize(rot : RotationCurveKey,option : typeHelper.Rotatio
 	error("Current option is invalid. Please see ./typeHelper")
 end
 
-function FloatCurveKeySize(key : FloatCurveKey,option : typeHelper.FloatCurveKeyOption) : number
+function FloatCurveKeySize(key : FloatCurveKey,option : TypeHelper.FloatCurveKeyOption) : number
 	if option == "Normal" then
 		return if (key.Interpolation == Enum.KeyInterpolationMode.Cubic) then 22 else 14
 	elseif option == "F32" then
@@ -48,7 +48,7 @@ function FloatCurveKeySize(key : FloatCurveKey,option : typeHelper.FloatCurveKey
 	error("Current option is invalid. Please see ./typeHelper")
 end
 
-@native function ColorSequenceSize(key : ColorSequence,option : typeHelper.ColorSequenceOption) : number
+@native function ColorSequenceSize(key : ColorSequence,option : TypeHelper.ColorSequenceOption) : number
 	if option == "Normal" then
 		return 1 + (7 * #key.Keypoints)
 	elseif option == "F24" then
@@ -61,7 +61,7 @@ end
 	error("Current option is invalid. Please see ./typeHelper")
 end
 
-@native function NumberSequenceSize(key : NumberSequence,option : typeHelper.NumberSequenceOption) : number
+@native function NumberSequenceSize(key : NumberSequence,option : TypeHelper.NumberSequenceOption) : number
 	if option == "Normal" then
 		return 1 + (12 * #key.Keypoints)
 	elseif option == "F16" then
@@ -167,8 +167,8 @@ return table.freeze({
 		NumberRangeF24 = 6,
 		NumberRangeF64 = 16,
 		NumberSequence = NumberSequenceSize,
-		},
-		
+	},
+
 	-- [number] = EnumItem, table identifiers to avoid 2 extra bytes while writing Enums
 	EnumItemList = EnumItemList,
 	-- [EnumItem] = number, O(1) research when writing
