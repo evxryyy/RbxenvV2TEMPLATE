@@ -3,7 +3,7 @@ import "./App.css"
 // Pages //
 import HomePage from "./pages/Home.tsx";
 import DocumentationPage from "./pages/Docs.tsx"
-é
+
 // Components //
 import {NavBar} from "./components/NavBar.tsx";
 
