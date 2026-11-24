@@ -1,7 +1,9 @@
 ﻿import {CodeSection} from "../components/CodeSection.tsx";
 import styles from "./Home.module.css"
+import { useNavigate } from "react-router-dom";
 
-export function HomePage() {
+export default function HomePage() {
+    const navigate = useNavigate();
     return (
         <header className={styles.homeHeader}>
             <h1 className={styles.title}>
@@ -15,7 +17,9 @@ export function HomePage() {
 
             <div className={styles.buttonContainer}>
                 <div className="inline w-full">
-                    <button className={styles.readDocumentation}>
+                    <button 
+                        onClick={() => navigate("/docs")}
+                        className={styles.readDocumentation}>
                         Read Documentation
                     </button>
 
