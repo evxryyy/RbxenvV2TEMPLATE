@@ -72,7 +72,6 @@ export default function SideBar() {
                                 )}
                             </div>
 
-                            {/* Sous-menu : on passe isCollapsed à BitstreamComponent */}
                             {item.subMenu && item.subMenuItems && (
                                 <div className={`${styles.itemsSubContainer} ${isOpen ? styles.menuOpen : ""}`}>
                                     <item.subMenuItems isSidebarCollapsed={isCollapsed} />
