@@ -1,0 +1,52 @@
+﻿@reference "../../App.css";
+
+.container {
+    @apply flex flex-col w-full;
+    
+    .menuIconSpacing {
+        @apply ml-2 shrink-0;
+    }
+
+    .menuLabel {
+        @apply font-mono ml-2 text-base whitespace-nowrap truncate select-none;
+    }
+
+    .itemsElements {
+        @apply flex items-center justify-start gap-3 w-full p-2 rounded-md
+        hover:bg-zinc-800 cursor-pointer font-mono select-none;
+    }
+
+    .itemsSubElements {
+        @apply flex items-center justify-start gap-3 w-full p-2 pl-4 rounded-md
+        hover:bg-zinc-800 cursor-pointer font-mono select-none;
+    }
+
+    .itemsContainer {
+        @apply flex flex-col gap-2 w-full;
+    }
+
+    .itemsSubContainer {
+        @apply flex flex-col gap-2 w-full overflow-hidden;
+        max-height: 0;
+        opacity: 0;
+        transition: max-height 0.1s ease-in-out, opacity 0.2s ease-in-out;
+    }
+
+    .itemsSubContainer.menuOpen {
+        max-height: 250px;
+        opacity: 1;
+    }
+    
+    
+    &.collapsed {
+        .menuIconSpacing {
+            @apply ml-0;
+        }
+        .itemsElements {
+            @apply justify-center;
+        }
+        .itemsSubElements {
+            @apply justify-center pl-2;
+        }
+    }
+}

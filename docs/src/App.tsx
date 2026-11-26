@@ -12,7 +12,7 @@ import {BrowserRouter, Routes, Route} from "react-router-dom";
 
 export default function App() {
     return (
-        <BrowserRouter basename="/RbxenvV2TEMPLATE">
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
             <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
                 <NavBar/>
                 <div className={`flex bg-transparent flex-1 w-full`}>

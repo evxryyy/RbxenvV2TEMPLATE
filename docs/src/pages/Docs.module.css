@@ -3,7 +3,7 @@
 @reference "../App.css";
 
 .docHeader {
-    @apply fixed w-full gap-4 ml-auto mr-auto p-20 zoom-125;
+    @apply fixed w-full gap-4 ml-auto mr-auto p-7 zoom-125;
     
     .title {
         animation: var(--animate-text-scroll);
