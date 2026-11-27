@@ -1,35 +1,32 @@
-﻿/* NavBar.module.css */
-
-@reference "tailwindcss";
+﻿@reference "tailwindcss";
 
 .navBar {
-    @apply sticky top-0 z-50 border-b border-white/10 bg-zinc-950/80 backdrop-blur;
+    @apply sticky top-0 z-50 w-full border-b border-white/10 bg-zinc-950/80 backdrop-blur;
 
     .navigation {
-        @apply px-4 flex h-14 flex-nowrap items-center gap-8;
+        @apply px-4 flex h-14 w-full flex-nowrap items-center justify-between md:justify-start gap-3 md:gap-8;
 
         .text {
-            @apply transition-colors shrink-0 whitespace-nowrap text-left text-slate-400
-            hover:text-sky-400 select-none font-mono;
+            @apply hidden md:block transition-colors shrink-0 whitespace-nowrap text-left text-slate-400
+            hover:text-sky-400 select-none font-mono text-sm;
         }
-        
+
         .ref {
-            @apply shrink-0 whitespace-nowrap font-mono text-slate-100;
+            @apply shrink-0 whitespace-nowrap font-mono text-slate-100 text-base md:text-lg font-semibold;
         }
-        
     }
 }
 
 .searchBar {
-    @apply ml-auto relative w-full max-w-md flex items-center transition-all duration-300;
+    @apply ml-auto relative w-full max-w-[180px] sm:max-w-xs md:max-w-md flex items-center transition-all duration-300;
 
     .icon {
         @apply absolute left-3 size-4 text-zinc-500 z-10 pointer-events-none transition-colors duration-300;
     }
 
     .inputField {
-        @apply w-full bg-zinc-900/50 border border-zinc-800 py-2.5
-        rounded-xl text-center font-mono text-[13px] text-zinc-200 outline-hidden
+        @apply w-full bg-zinc-900/50 border border-zinc-800 py-2 md:py-2.5 pl-9 pr-3
+        rounded-xl text-center md:text-left font-mono text-[12px] md:text-[13px] text-zinc-200 outline-hidden
         placeholder:text-zinc-600 transition-all duration-300 ease-in-out;
 
         &:hover {
@@ -40,6 +37,4 @@
             @apply border-sky-500/50 ring-2 ring-sky-500/10;
         }
     }
-    
-    
 }

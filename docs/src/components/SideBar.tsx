@@ -17,13 +17,13 @@ export default function SideBar() {
     const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
     const menuItems = [
-        { title: "Home", clickEvent: () => navigate("/"), icon: <Home /> },
-        { title: "Getting Started", clickEvent: () => navigate("/docs"), icon: <Soup /> },
+        { title: "Home", clickEvent: () => navigate("/"), icon: <Home size={20} /> },
+        { title: "Getting Started", clickEvent: () => navigate("/docs"), icon: <Soup size={20} /> },
         {
             title: "API",
-            collaspIcon: <ArrowDown size={20} />,
+            collaspIcon: <ArrowDown size={18} />,
             clickEvent: () => navigate("/docs"),
-            icon: <BookOpenCheck />,
+            icon: <BookOpenCheck size={20} />,
             subMenu: true,
             itemCollasped: useState<boolean>(true),
             subMenuItems: BitstreamComponent
@@ -31,12 +31,12 @@ export default function SideBar() {
     ];
 
     return (
-        <aside className={`${styles.sideBar} ${isCollapsed ? styles.collapsed : ""}`}>
+        <aside className={`hidden md:flex flex-col ${styles.sideBar} ${isCollapsed ? styles.collapsed : ""}`}>
             <div className={styles.container}>
                 <div
                     className={styles.mainElements}
                     onClick={() => setIsCollapsed(!isCollapsed)}>
-                    <Logs className={styles.menuIconSpacing} />
+                    <Logs className={styles.menuIconSpacing} size={20} />
                     {!isCollapsed && (
                         <p className={styles.menuLabel}>Navigation</p>
                     )}
@@ -44,7 +44,7 @@ export default function SideBar() {
             </div>
 
             {/* Separator */}
-            <Minus className={`mt-4 ${isCollapsed ? "m-auto" : "hidden"}`} />
+            <Minus className={`mt-4 ${isCollapsed ? "mx-auto" : "hidden"}`} />
 
             <ul className={`${styles.itemsContainer} items-center mt-4`}>
                 {menuItems.map((item, index) => {

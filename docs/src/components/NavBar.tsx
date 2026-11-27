@@ -1,5 +1,6 @@
-﻿import {Search} from "lucide-react";
-import styles from "./NavBar.module.css"
+﻿import { Search } from "lucide-react";
+import styles from "./NavBar.module.css";
+import { Link } from "react-router-dom";
 
 function SearchBar() {
     return (
@@ -11,7 +12,7 @@ function SearchBar() {
                 className={styles.inputField}
             />
         </div>
-    )
+    );
 }
 
 export function NavBar() {
@@ -21,12 +22,11 @@ export function NavBar() {
                 <p className={styles.text}>
                     @Copyright evxryyy 2026-2027
                 </p>
-                <a href="/"
-                   className={styles.ref}>
+                <Link to="/" className={styles.ref}>
                     Rbxenv
-                </a>
-                <SearchBar/>
+                </Link>
+                <SearchBar />
             </nav>
-        </header>        
-    )
+        </header>
+    );
 }

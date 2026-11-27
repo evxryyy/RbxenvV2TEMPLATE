@@ -1,16 +1,19 @@
 ﻿@reference "../App.css";
 
 .sideBar {
-    @apply shrink-0 border-r border-zinc-800 p-6 mr-4 
-    overflow-hidden transition-all duration-100;
+    @apply shrink-0 border-r border-zinc-800 p-6 mr-4
+    overflow-y-auto overflow-x-hidden transition-all duration-100;
     width: 240px;
+    height: calc(100dvh - 3.5rem);
+    position: sticky;
+    top: 3.5rem;
 
     .container {
-        @apply flex flex-1 w-full;
+        @apply flex w-full;
     }
 
     .mainElements {
-        @apply inline-flex items-center justify-center bg-transparent 
+        @apply inline-flex items-center justify-center bg-transparent
         rounded-md pr-4 pb-2 pt-2 cursor-pointer;
 
         &:hover {
@@ -25,11 +28,11 @@
             @apply font-mono ml-2 text-2xl text-center whitespace-nowrap truncate;
         }
     }
-    
+
     .itemsContainer {
         @apply flex flex-col gap-2 w-full overflow-hidden;
     }
-    
+
     .itemsSubContainer {
         @apply flex flex-col gap-2 w-full overflow-hidden;
         max-height: 0;
@@ -38,37 +41,36 @@
     }
 
     .itemsSubContainer.menuOpen {
-        max-height: 250px; 
+        max-height: 250px;
         opacity: 1;
     }
-    
+
     .itemsElements {
-        @apply flex items-center gap-3 w-full p-2 rounded-md 
+        @apply flex items-center gap-3 w-full p-2 rounded-md
         hover:bg-zinc-800 cursor-pointer font-mono select-none;
     }
-    
+
     .itemsSubElements {
         @apply flex items-center
-        gap-3 w-full p-2 rounded-md 
+        gap-3 w-full p-2 rounded-md
         hover:bg-zinc-800 cursor-pointer font-mono
         justify-center select-none;
     }
-    
 }
 
 .sideBar.collapsed {
-    @apply w-24 px-0 border-r-transparent; 
+    @apply w-24 px-0 border-r-transparent;
 
     .container {
         @apply justify-center;
     }
-    
+
     .itemsContainer {
-        @apply justify-center items-center;
+        @apply justify-start items-center;
     }
-    
+
     .itemsSubContainer {
-        @apply justify-center items-center;
+        @apply justify-start items-center;
     }
 
     .mainElements {
@@ -78,13 +80,12 @@
             @apply m-0;
         }
     }
-    
+
     .itemsElements {
         @apply p-2 pr-2 justify-center;
     }
-    
+
     .itemsSubElements {
         @apply p-2 pr-2 justify-center;
     }
-    
 }
